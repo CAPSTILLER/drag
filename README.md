@@ -12,7 +12,7 @@ CAPs Garage is a top-down retro arcade street experience and non-custodial airdr
 
 It connects three core utility tokens without inflating supply or printing new tokens:
 - **$DRB (Oil / Fuel)**: Community-funded reward pool dropped into the community vault.
-- **$BYTE (The Dog)**: Holding $BYTE unlocks 1 $GEAR every 60s via the dog fetch escrow.
+- **$BYTE (The Dog)**: Holding &ge; 50 $BYTE unlocks 1 $GEAR every 60s via the dog fetch escrow, capped at 60 GEAR per wallet per day.
 - **$GEAR (Tools & Access Keys)**: Required to repair/drive the red SUV, unlock the 500-garage Junkyard labyrinth (100 GEAR), and scavenge abandoned airdrop rewards (1,000 GEAR).
 
 ---
@@ -36,18 +36,24 @@ It connects three core utility tokens without inflating supply or printing new t
    - **Days 7–14 (Scavenger Window)**: Any player holding &ge; 1,000 GEAR can claim unclaimed allocations (90% payout to scavenger, 10% to cold immutable treasury).
    - **Day 14+ (Dust Sweep)**: Holder of Admin NFT #1793 sweeps expired leftovers: 90% recycled back into Oil Escrow, 10% to cold treasury.
 
-4. **BYTE Fetch Escrow (60s Tool Faucet)**
-   - Distributes 1 $GEAR per call to any wallet with `BYTE.balanceOf(msg.sender) > 0`.
-   - On-chain `lastClaimedAt` mapping enforces a 60-second cooldown per wallet.
+4. **BYTE Fetch Escrow (`claimTool`) — Updated Anti-Sybil Specification**
+   - **Token Gate**: Requires `BYTE.balanceOf(msg.sender) >= 50 * 10**18` (minimum 50 $BYTE). Prevents fractional-dust multi-wallet sybil farming and creates sustained holding demand for $BYTE.
+   - **Gas Requirement**: Caller signs on-chain transaction and pays Base L2 network gas.
+   - **Cadence & Throttle**: 1 $GEAR per claim with a 60-second cooldown (`lastClaimedAt[msg.sender] + 60 <= block.timestamp`).
+   - **Hard Daily Wallet Cap**: Capped at **60 GEAR per wallet per 24-hour UTC window** (`dailyClaims[msg.sender] < 60`).
+   - **Anti-Inflation & Progression Impact**:
+     - Prevents bots from siphoning 1,440 GEAR/day per wallet.
+     - Preserves the economic value of the 100 GEAR Junkyard Gate (requires at least 2 full days of dedicated claiming).
+     - Protects the 1,000 GEAR Scavenger threshold (requires at least 17 days of active gameplay or secondary market trading).
 
 ---
 
 ## 4 Perspective Views in Dossier
 
-- **Tech**: Contract specs, RPC routing, gas vectors, and why on-chain captcha contracts fail against MEV bots (and how EIP-712 / caller bounties solve it).
+- **Tech**: Contract specs, RPC routing, gas vectors, sybil defense via token gating + daily quotas, and why on-chain captcha contracts fail against MEV bots.
 - **Bankman**: Zero-inflation token mobilization, capital efficiency, immutable cold treasury fees (10%), zero-cost serverless hosting, and conversion funnels.
-- **Normie**: Plain-English Web2 explanation of walking the street, picking up oil cans, dog fetch, repairing the SUV, and driving into the junkyard.
-- **Degen**: The 60s free GEAR farm, PVP sleeping holder traps, 90/10 vulture bounty mechanics, and keeper bot dynamics.
+- **Normie**: Plain-English Web2 explanation of walking the street, picking up oil cans, dog fetch with BYTE, repairing the SUV, and driving into the junkyard.
+- **Degen**: The 50 BYTE + 60 GEAR/day farm, PVP sleeping holder traps, 90/10 vulture bounty mechanics, and keeper bot dynamics.
 
 ---
 
