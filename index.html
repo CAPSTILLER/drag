@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAPs Garage — Master Blueprint</title>
+  <style>
+    :root {
+      --bg-base: #0a0d12;
+      --bg-surface: #121820;
+      --bg-surface-elevated: #1a222d;
+      --bg-card: #151d27;
+      --border-subtle: #222d3d;
+      --border-accent: #f59e0b;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-oil: #f59e0b;
+      --accent-oil-glow: rgba(245, 158, 11, 0.2);
+      --accent-gear: #38bdf8;
+      --accent-byte: #10b981;
+      --accent-degen: #ec4899;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 24px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Top HUD Header */
+    header.hud-header {
+      background: linear-gradient(180deg, var(--bg-surface-elevated) 0%, var(--bg-surface) 100%);
+      border: 1px solid var(--border-subtle);
+      border-left: 4px solid var(--accent-oil);
+      border-radius: 8px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hud-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hud-title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-base {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(0, 82, 255, 0.2);
+      color: #60a5fa;
+      border: 1px solid rgba(0, 82, 255, 0.4);
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .token-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill.oil { border-color: var(--accent-oil); color: var(--accent-oil); }
+    .pill.gear { border-color: var(--accent-gear); color: var(--accent-gear); }
+    .pill.byte { border-color: var(--accent-byte); color: var(--accent-byte); }
+
+    .hud-subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      max-width: 900px;
+    }
+
+    /* Perspective Switcher (The 4 Main Buttons) */
+    .button-deck {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .button-deck {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .mode-btn {
+      background: var(--bg-surface);
+      border: 2px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 16px 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: left;
+      transition: all 0.15s ease-in-out;
+      position: relative;
+    }
+
+    .mode-btn:hover {
+      background: var(--bg-surface-elevated);
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+    }
+
+    .mode-btn.active {
+      background: var(--bg-surface-elevated);
+      border-color: var(--accent-oil);
+      box-shadow: 0 0 16px var(--accent-oil-glow);
+    }
+
+    .mode-btn-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .mode-btn.active .mode-btn-tag {
+      color: var(--accent-oil);
+    }
+
+    .mode-btn-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .mode-btn-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* Content Panels */
+    .view-panel {
+      display: none;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 24px;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .view-panel.active {
+      display: flex;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 8px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-highlight {
+      border-left: 3px solid var(--accent-oil);
+    }
+
+    .card-header {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-body {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .card-body p {
+      margin-bottom: 8px;
+    }
+
+    .card-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .code-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #38bdf8;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* Architecture Visualizer Box */
+    .arch-flow-box {
+      background: #0d131a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #cbd5e1;
+      overflow-x: auto;
+      line-height: 1.6;
+    }
+
+    /* Interactive Simulator */
+    .sim-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sim-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .sim-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sim-field label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .sim-input {
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .sim-result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 14px;
+    }
+
+    .sim-metric {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sim-metric-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .sim-metric-val {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent-oil);
+      font-family: var(--font-mono);
+    }
+
+    /* Comparison Table */
+    table.spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    table.spec-table th {
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    table.spec-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-main);
+    }
+
+    table.spec-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Footer */
+    footer.hud-footer {
+      margin-top: auto;
+      font-size: 12px;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top HUD Header -->
+  <header class="hud-header">
+    <div class="hud-title-row">
+      <div class="hud-title">
+        <span>CAPs Garage</span>
+        <span class="badge-base">Base Chain 8453</span>
+        <span class="badge-base" style="border-color: #10b981; color: #34d399;">10-Can Pump & Instant Reward Loop</span>
+      </div>
+      <div class="token-pills">
+        <div class="pill oil"><span>OIL:</span> <span>$DRB</span></div>
+        <div class="pill gear"><span>TOOL:</span> <span>$GEAR</span></div>
+        <div class="pill byte"><span>DOG:</span> <span>$BYTE</span></div>
+      </div>
+    </div>
+    <div class="hud-subtitle">
+      Master architectural dossier, smart contract mechanics, security reviews, and audience translations for the top-down on-chain arcade and airdrop ecosystem on Base.
+    </div>
+  </header>
+
+  <!-- Perspective Switcher: 4 Main Buttons -->
+  <div class="button-deck">
+    <button class="mode-btn active" id="btn-tech" onclick="switchMode('tech')">
+      <span class="mode-btn-tag">Architecture & Code</span>
+      <span class="mode-btn-title">Tech</span>
+      <span class="mode-btn-desc">Full contract specs, RPC routing, gas vectors, and the captcha/relayer analysis for Web2/3 devs.</span>
+    </button>
+    <button class="mode-btn" id="btn-bankman" onclick="switchMode('bankman')">
+      <span class="mode-btn-tag">Investment & Flywheel</span>
+      <span class="mode-btn-title">Bankman</span>
+      <span class="mode-btn-desc">Asset sink mechanics, zero-inflation value loop, risk profile, and the immutable 10% treasury.</span>
+    </button>
+    <button class="mode-btn" id="btn-normie" onclick="switchMode('normie')">
+      <span class="mode-btn-tag">User Experience</span>
+      <span class="mode-btn-title">Normie</span>
+      <span class="mode-btn-desc">Explaining the arcade street, broken SUV, and dog fetch to someone used to Steam or mobile games.</span>
+    </button>
+    <button class="mode-btn" id="btn-degen" onclick="switchMode('degen')">
+      <span class="mode-btn-tag">Alpha & Strategy</span>
+      <span class="mode-btn-title">Degen</span>
+      <span class="mode-btn-desc">PVP scavenge timers, 90/10 holder bags, the 60s GEAR faucet, and bot gas-slavery breakdown.</span>
+    </button>
+  </div>
+
+  <!-- VIEW 1: TECH (Web2 & Web3 Developers) -->
+  <div class="view-panel active" id="panel-tech">
+    <div class="section-title">
+      <span>1. Full Technical Architecture & Smart Contracts</span>
+    </div>
+
+    <div class="card-grid">
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Contract 1: Gate Registry</span>
+          <span class="code-tag">Access Key: NFT #1793</span>
+        </div>
+        <div class="card-body">
+          <p><strong>Pattern:</strong> Cloned from Midas Gate (0x54c3c8c9e2180c6b90652983d1c15cf933f1a263). Admin rights strictly tied to the holder of DebtReliefFam NFT #1793 on Base (0xc659c002f06f980f2caa577748504e9be7f26146).</p>
+          <p><strong>Total Calculation Without Loops:</strong> To avoid out-of-gas enumeration, the admin registers collections alongside an explicit ID range: <code>(address collection, uint256 startId, uint256 endId)</code>. Total eligible NFTs is calculated on-chain via <code>sum(endId - startId + 1)</code>. Cost: under 15k gas.</p>
+          <p><strong>Immutability:</strong> Removing a collection affects future drops only; snapshots in Drop Vault preserve past claims.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Contract 2: Oil Escrow (DRB Tank)</span>
+          <span class="code-tag">Public Tap</span>
+        </div>
+        <div class="card-body">
+          <p><strong>Purpose:</strong> Holds community-funded DRB. Dispenses one <code>packetSize</code> per <code>cooldownSeconds</code> into the Drop Vault.</p>
+          <p><strong>Public Function:</strong> <code>fillOil()</code>. Takes zero amount arguments from the caller to eliminate manipulation. Reverts if <code>balance &lt; packetSize</code> or if cooldown is active.</p>
+          <p><strong>Admin Knobs:</strong> Admin NFT holder #1793 can tune <code>packetSize</code> and <code>cooldownSeconds</code>. Cannot rug or redirect held tokens.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Contract 3: Drop Vault</span>
+          <span class="code-tag">Pull-Claim & Scavenge</span>
+        </div>
+        <div class="card-body">
+          <p><strong>Funding:</strong> Restricted to calls from Oil Escrow via <code>fundFromEscrow(packetSize)</code>. Takes a real-time snapshot of active collections and eligible counts directly from Gate Registry.</p>
+          <p><strong>Days 0–7:</strong> 100% claimed by current NFT holder of that token ID.</p>
+          <p><strong>Days 7–14:</strong> Scavenger window. Any wallet with &ge; 1,000 GEAR can claim unclaimed bags for 90% payout; 10% routed to immutable treasury.</p>
+          <p><strong>Day 14+:</strong> Holder of Admin NFT #1793 triggers <code>sweepExpired(dropId)</code>. 90% recycled directly back to Oil Escrow, 10% to treasury.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Contract 4: BYTE Fetch Escrow</span>
+          <span class="code-tag">60s Faucet</span>
+        </div>
+        <div class="card-body">
+          <p><strong>Purpose:</strong> Holds GEAR tokens. Distributes exactly 1 GEAR per transaction.</p>
+          <p><strong>Gate:</strong> <code>BYTE.balanceOf(msg.sender) &gt; 0</code>. Player must pay their own gas.</p>
+          <p><strong>Anti-Abuse:</strong> On-chain mapping <code>lastClaimedAt[msg.sender]</code> enforces a 60-second cooldown per wallet, preventing multi-tab script flooding.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10-Can Deposit & Caller Bounty Pipeline -->
+    <div class="section-title">
+      <span>2. The 10-Can Deposit Pipeline & Direct Player Bounty</span>
+    </div>
+    <div class="card" style="border-left: 3px solid #10b981;">
+      <div class="card-header">
+        <span>Arcade Gameplay to On-Chain Execution Pipeline</span>
+        <span class="code-tag">Instant Player Payout</span>
+      </div>
+      <div class="card-body">
+        <p><strong>Step 1: Street Arcade Collection:</strong> Player roams the top-down canvas picking up cans. Client holds can inventory up to a capped batch of 10 cans.</p>
+        <p><strong>Step 2: Deposit at SUV:</strong> Player interacts with the red SUV to deposit the 10 cans into the tank.</p>
+        <p><strong>Step 3: Wallet Sign & Fill:</strong> Game prompts wallet connection. Player signs the fillOil() transaction and pays a fraction of a cent in Base network gas. The contract enforces a hybrid dual cooldown: a 10-minute cooldown per wallet to stop single-wallet farming, plus a 10-second global tank cooldown to stop same-block reentrancy or bot collisions while keeping the street immediately operable for other players.</p>
+        <p><strong>Step 4: Split Distribution:</strong> The Oil Tank contract releases 10 DRB: 9 DRB routes into the Drop Vault for NFT holders/scavengers, while 1 DRB transfers immediately to msg.sender as a direct in-game reward for pumping the tank.</p>
+        <p><strong>Bot Dynamic:</strong> If an automated keeper bot calls fillOil() first, the bot pays the network gas and earns the 1 DRB bounty, while the 9 DRB still drops into the community vault. The game loop never stalls.</p>
+      </div>
+    </div>
+    <div class="card" style="border-left: 3px solid #ec4899;">
+      <div class="card-header">
+        <span>Why An On-Chain Captcha Contract Fails Against Bots (And The Working Solution)</span>
+      </div>
+      <div class="card-body">
+        <p><strong>The Proposal:</strong> A 3-step contract where the browser triggers Call 1, solves a captcha, and triggers Call 2 within a 10-second window to release 10 DRB.</p>
+        <p><strong>EVM Execution Reality:</strong> Smart contracts are public and deterministic. A bot monitoring the mempool or the public blockchain can call both Contract 1 and Contract 2 within the exact same block (or even via a single atomic smart contract transaction) in under 20 milliseconds. Furthermore, on-chain code cannot independently verify whether a web user solved an image captcha in their browser without an off-chain cryptographic signature.</p>
+        <p><strong>The Real Solution (Option A — The 1% MEV Bounty):</strong> Instead of fighting bots with brittle on-chain timers, offer a 1% DRB caller bounty inside <code>fillOil()</code>. MEV searchers will happily pay Base gas 24/7 to pump the tank the instant cooldown resets, completely removing the need for you to run servers or pay gas.</p>
+        <p><strong>The Real Solution (Option B — EIP-712 Signed Turnstile):</strong> If you strictly require human verification before a relayer submits gas, the user solves an off-chain Cloudflare Turnstile in the browser. A lightweight serverless backend verifies the token and signs an EIP-712 permit: <code>(userAddress, nonce, deadline)</code>. The relayer submits the transaction only when the signature is valid.</p>
+      </div>
+    </div>
+
+    <!-- Architecture Visual Flow -->
+    <div class="section-title">
+      <span>3. On-Chain Data Flow Diagram</span>
+    </div>
+    <div class="arch-flow-box">
++--------------------+        +---------------------+        +--------------------+
+|  Community / Team  | -----> |   Oil Escrow (DRB)  | -----> |     Drop Vault     |
+|   Refill DRB Tank  |        |  (Cooldown + Tap)   |        |  (Snapshots Gates) |
++--------------------+        +---------------------+        +--------------------+
+                                         |                              |
+                             fillOil() (Public/Bounty)     +------------+------------+
+                                                           |                         |
+                                                    Days 0 - 7                Days 7 - 14
+                                                    Holder 100%            GEAR Scavenger 90/10
+                                                           |                         |
+                                                           v                         v
+                                                    NFT Holder Wallet         Scavenger Wallet
+                                                                                     +
+                                                                             10% Immutable Treasury
+                                                                                     |
+                                                           Day 14+ Sweep             |
+                                                           90% Recycled to Escrow <--+
+    </div>
+  </div>
+
+  <!-- VIEW 2: BANKMAN (Wealthy Investor & Tokenomics) -->
+  <div class="view-panel" id="panel-bankman">
+    <div class="section-title">
+      <span>Executive Summary: Capital Efficiency & Closed Economic Flywheel</span>
+    </div>
+
+    <div class="card-grid">
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Zero-Inflation Token Mobilization</span>
+        </div>
+        <div class="card-body">
+          <p>Most Web3 games print inflationary reward tokens that collapse to zero value. CAPs Garage creates zero new tokens. Instead, it activates three existing market tokens on Base:</p>
+          <p><strong>DRB (Fuel):</strong> Acts as the reward pool. Community members and sponsors deposit DRB to fuel airdrops to partner NFT communities.</p>
+          <p><strong>BYTE (Acquisition Tool):</strong> Holding any quantity of BYTE gives the player a continuous drip of utility tools (GEAR).</p>
+          <p><strong>GEAR (Utility Key & Sieve):</strong> Required to drive vehicles, unlock high-tier junkyards (100 GEAR), and scavenge abandoned reward pools (1,000 GEAR).</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Automated Treasury Revenue (10% Mop)</span>
+        </div>
+        <div class="card-body">
+          <p>The contract features an immutable treasury address set at deployment (e.g. <code>0xA12506f742F4AB0980a57264871DB56A1A150793</code>). There are no admin override keys or backdoor withdrawal functions.</p>
+          <p><strong>Revenue Source:</strong> When eligible NFT holders fail to claim their rewards within 7 days, open-market scavengers claim the assets, generating an automatic 10% fee directly into the cold treasury.</p>
+          <p><strong>Unclaimed Dust Sweep:</strong> After 14 days, all remaining unclaimed rewards are swept: 90% is recycled into the game's fuel tank, and 10% is remitted to the treasury.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Operating Expense: Zero Infrastructure Cost</span>
+        </div>
+        <div class="card-body">
+          <p>Traditional games require centralized game servers, databases, AWS hosting, and monthly maintenance retainers. CAPs Garage is built entirely serverless:</p>
+          <p><strong>Frontend:</strong> Static files hosted on decentralized IPFS or Arweave at virtually zero cost.</p>
+          <p><strong>Execution Layer:</strong> Base smart contracts. Gas for reward distributions can be completely crowdsourced or captured by decentralized arbitrage bots via caller bounties.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>The Conversion Funnel</span>
+        </div>
+        <div class="card-body">
+          <p><strong>Top of Funnel:</strong> Anyone can roam the street arcade without a wallet, picking up virtual cans.</p>
+          <p><strong>First Conversion:</strong> Dog offers 1 free GEAR. User connects a wallet to claim.</p>
+          <p><strong>Second Conversion:</strong> User discovers driving requires holding GEAR, and the 500-door Junkyard requires 100 GEAR.</p>
+          <p><strong>Whale Conversion:</strong> Users acquire 1,000+ GEAR to operate automated scavenger operations that harvest expired airdrop pools.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>Interactive Capital Flow Simulator</span>
+    </div>
+    <div class="sim-box">
+      <div class="sim-controls">
+        <div class="sim-field">
+          <label for="sim-tank">Total DRB Tank Refill</label>
+          <input type="number" id="sim-tank" class="sim-input" value="1000000" oninput="runSimulation()">
+        </div>
+        <div class="sim-field">
+          <label for="sim-claim-rate">Holder Claim Rate (%)</label>
+          <input type="number" id="sim-claim-rate" class="sim-input" value="60" min="0" max="100" oninput="runSimulation()">
+        </div>
+        <div class="sim-field">
+          <label for="sim-scavenge-rate">Scavenger Claim Rate (%)</label>
+          <input type="number" id="sim-scavenge-rate" class="sim-input" value="30" min="0" max="100" oninput="runSimulation()">
+        </div>
+      </div>
+
+      <div class="sim-result-grid">
+        <div class="sim-metric">
+          <div class="sim-metric-label">Holders Paid (100%)</div>
+          <div class="sim-metric-val" id="res-holders">600,000 DRB</div>
+        </div>
+        <div class="sim-metric">
+          <div class="sim-metric-label">Scavengers Paid (90%)</div>
+          <div class="sim-metric-val" id="res-scavengers">270,000 DRB</div>
+        </div>
+        <div class="sim-metric">
+          <div class="sim-metric-label">Recycled to Tank (90%)</div>
+          <div class="sim-metric-val" id="res-recycled">90,000 DRB</div>
+        </div>
+        <div class="sim-metric">
+          <div class="sim-metric-label">Treasury Accrual (10%)</div>
+          <div class="sim-metric-val" id="res-treasury">40,000 DRB</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3: NORMIE (Web2 Gamer & App User) -->
+  <div class="view-panel" id="panel-normie">
+    <div class="section-title">
+      <span>What Is CAPs Garage? (The Web2 Breakdown)</span>
+    </div>
+
+    <div class="card-grid">
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>1. The Street Arcade (Zero Crypto Barrier)</span>
+        </div>
+        <div class="card-body">
+          <p>Imagine loading up a retro 16-bit arcade game like Pokémon or Earthbound directly in your browser. You spawn on an urban street beside a broken-down red SUV with big tires.</p>
+          <p>You can start running around immediately using your arrow keys. You spot shiny yellow oil cans on the pavement and walk over them to collect them. Your oil counter ticks up: 1, 2, 5, 10 cans!</p>
+          <p>You don't need an account, a password, a credit card, or a crypto wallet to enjoy the core arcade loop.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>2. BYTE The Dog & Free Tools</span>
+        </div>
+        <div class="card-body">
+          <p>Every 60 seconds while you're exploring the map, a friendly dog named BYTE trots over to your character. BYTE barks and brings you a free tool: <strong>1 GEAR</strong>.</p>
+          <p>If you don't have a digital backpack connected yet, the game simply asks: <em>"Want to keep this tool? Connect a wallet and stash it in your inventory, or it hits the dirt."</em></p>
+          <p>If you connect, BYTE hands you the item. If you ignore it, no worries—BYTE will roam back a minute later with another offer.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>3. Fixing The Red SUV (Fast Travel)</span>
+        </div>
+        <div class="card-body">
+          <p>Walking is fun, but driving is better. Once you collect tools, you can walk up to the broken-down SUV and tap <strong>Repair</strong>.</p>
+          <p>As long as you have a GEAR in your inventory, your character hops into the driver's seat. Your speed doubles and you can drift across the asphalt, collecting oil cans at high velocity.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>4. The Junkyard Labyrinth</span>
+        </div>
+        <div class="card-body">
+          <p>At the edge of town is a heavy chain-link gate leading to the Junkyard. To open the gate, the gatekeeper requires 100 GEAR in your pack.</p>
+          <p>Inside lies an enormous maze of 500 numbered garages. The doors are randomized and shrouded in fog of war. You can drive your SUV through the alleys, discover hidden oil stations, and look for secret doors.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>How Web3 Powers This Without The Hassle</span>
+    </div>
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Normal Web2 Mobile Game</th>
+          <th>CAPs Garage Experience</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Game company can ban your account and delete your items.</td>
+          <td>Items are stored in your wallet. You own them forever.</td>
+        </tr>
+        <tr>
+          <td>Forced credit card purchases ($0.99 energy packs).</td>
+          <td>Free to roam. Dog gives you free items on a minute timer.</td>
+        </tr>
+        <tr>
+          <td>Servers get shut down after 2 years when company goes bust.</td>
+          <td>Smart contracts live permanently on Base. Game cannot be deleted.</td>
+        </tr>
+        <tr>
+          <td>Virtual currency cannot be traded outside the app.</td>
+          <td>DRB oil and GEAR tools can be traded or swapped freely at any time.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- VIEW 4: DEGEN (Crypto Bro & Alpha Hunter) -->
+  <div class="view-panel" id="panel-degen">
+    <div class="section-title">
+      <span>Degen Alpha Playbook: Yield Loops & Scavenger Mechanics</span>
+    </div>
+
+    <div class="card-grid">
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>The Free GEAR Farm Loop</span>
+          <span class="code-tag">Faucet Glitch</span>
+        </div>
+        <div class="card-body">
+          <p><strong>Requirement:</strong> Hold literally 0.000001 $BYTE in your wallet on Base.</p>
+          <p><strong>The Play:</strong> Keep the game open in a browser tab. Every 60 seconds, BYTE walks up with 1 real $GEAR. Sign the tx, pay ~$0.0008 Base gas, and pocket 1 GEAR.</p>
+          <p>60 GEAR per hour just for chilling on the street. Hit 100 GEAR and you enter the Junkyard VIP club. Hit 1,000 GEAR and you become a licensed bag scavenger.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>The 7-Day Sleeping Holder Trap</span>
+          <span class="code-tag">PVP Scavenging</span>
+        </div>
+        <div class="card-body">
+          <p>When the oil tank pumps, real DRB drops into the vault split across all registered NFT collections (Letters to CAP, Midas, etc.).</p>
+          <p><strong>Days 0–7:</strong> The NFT holder has 7 days to claim their 100% allocation.</p>
+          <p><strong>Days 7–14 (The Scavenge Arena):</strong> If the holder is asleep, on vacation, or forgot to check the dApp, ANY degens holding &ge; 1,000 GEAR can step in, call <code>claimScavenger()</code>, and snatch <strong>90% of their rewards</strong> right out of their hands. 10% goes to the treasury as a cleanup fee.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Making MEV Bots Our Gas Slaves</span>
+          <span class="code-tag">Bounty Arbitrage</span>
+        </div>
+        <div class="card-body">
+          <p>Instead of you paying gas to dump oil into the drop vault, we attach a 1% DRB bounty to <code>fillOil()</code>.</p>
+          <p>Base arbitrage bots and keeper bots will monitor the contract 24/7. The millisecond the cooldown expires, bots will frontrun each other, pay the network gas out of their own pocket, and execute the drop for the community just to grab that 1% sliver.</p>
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span>Day 14 Mop: Endless Liquid Rotation</span>
+          <span class="code-tag">Zero Dilution</span>
+        </div>
+        <div class="card-body">
+          <p>Whatever unclaimed dust survives past Day 14 gets swept by the Admin NFT (#1793). 90% is injected directly back into the Oil Escrow tank to fund the next wave of drops.</p>
+          <p>The tokens never leave the ecosystem. Unclaimed tokens feed new drops, which feed scavengers, which burn and lock GEAR.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>Quick Degen Cheatsheet</span>
+    </div>
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Asset / Action</th>
+          <th>What You Need</th>
+          <th>What You Get</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Drive SUV</strong></td>
+          <td>&ge; 1 GEAR</td>
+          <td>2x movement speed in street & junkyard maze.</td>
+        </tr>
+        <tr>
+          <td><strong>Dog Fetch</strong></td>
+          <td>&gt; 0 BYTE</td>
+          <td>1 GEAR every 60 seconds.</td>
+        </tr>
+        <tr>
+          <td><strong>Junkyard Gate</strong></td>
+          <td>&ge; 100 GEAR</td>
+          <td>Access to 500-garage maze and secret oil stations.</td>
+        </tr>
+        <tr>
+          <td><strong>Vulture Scavenge</strong></td>
+          <td>&ge; 1,000 GEAR</td>
+          <td>Steal 90% of unclaimed NFT airdrops on days 7–14.</td>
+        </tr>
+        <tr>
+          <td><strong>Sweep Leftovers</strong></td>
+          <td>DebtReliefFam #1793</td>
+          <td>Mop up expired drops: 90% back to oil tank, 10% to cold treasury.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <footer class="hud-footer">
+    <div>CAPs Garage • Base Chain (8453) • Zero Admin Backdoor • Immutable Split Vault</div>
+    <div>Built for CAPSTILLER Community</div>
+  </footer>
+
+  <script>
+    function switchMode(mode) {
+      // Buttons
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('btn-' + mode);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // Panels
+      document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+      const activePanel = document.getElementById('panel-' + mode);
+      if (activePanel) activePanel.classList.add('active');
+    }
+
+    function runSimulation() {
+      const tank = parseFloat(document.getElementById('sim-tank').value) || 0;
+      const holderRate = parseFloat(document.getElementById('sim-claim-rate').value) / 100 || 0;
+      const scavengeRate = parseFloat(document.getElementById('sim-scavenge-rate').value) / 100 || 0;
+
+      const holdersPaid = tank * holderRate;
+      const remainingAfterHolders = tank - holdersPaid;
+      
+      const scavengedPool = remainingAfterHolders * scavengeRate;
+      const scavengersPaid = scavengedPool * 0.9;
+      const scavengeTreasury = scavengedPool * 0.1;
+
+      const expiredPool = remainingAfterHolders - scavengedPool;
+      const recycledToTank = expiredPool * 0.9;
+      const expiredTreasury = expiredPool * 0.1;
+
+      const totalTreasury = scavengeTreasury + expiredTreasury;
+
+      document.getElementById('res-holders').innerText = Math.round(holdersPaid).toLocaleString() + ' DRB';
+      document.getElementById('res-scavengers').innerText = Math.round(scavengersPaid).toLocaleString() + ' DRB';
+      document.getElementById('res-recycled').innerText = Math.round(recycledToTank).toLocaleString() + ' DRB';
+      document.getElementById('res-treasury').innerText = Math.round(totalTreasury).toLocaleString() + ' DRB';
+    }
+
+    // Run initial sim on load
+    runSimulation();
+  </script>
+</body>
+</html>
