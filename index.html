@@ -112,36 +112,6 @@
       max-width: 900px;
     }
 
-    /* Beta Lock Banner */
-    .beta-lock-banner {
-      background: rgba(16, 185, 129, 0.08);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      border-left: 4px solid #10b981;
-      border-radius: 8px;
-      padding: 14px 18px;
-      font-size: 13px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .beta-lock-title {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 800;
-      color: #34d399;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .beta-lock-text {
-      color: #cbd5e1;
-      line-height: 1.5;
-    }
-
     /* Perspective Switcher (The 4 Main Buttons) */
     .button-deck {
       display: grid;
@@ -421,26 +391,18 @@
         <span class="badge-base">Base Chain 8453</span>
         <span class="badge-base" style="border-color: #10b981; color: #34d399;">10-Can Pump & Instant Reward Loop</span>
       </div>
-      <div class="token-pills">
-        <div class="pill oil"><span>OIL:</span> <span>$DRB</span></div>
-        <div class="pill gear"><span>TOOL:</span> <span>$GEAR</span></div>
-        <div class="pill byte"><span>DOG:</span> <span>$BYTE</span></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="token-pills">
+          <div class="pill oil"><span>OIL:</span> <span>$DRB</span></div>
+          <div class="pill gear"><span>TOOL:</span> <span>$GEAR</span></div>
+          <div class="pill byte"><span>DOG:</span> <span>$BYTE</span></div>
+        </div>
       </div>
     </div>
     <div class="hud-subtitle">
       Master architectural dossier, smart contract mechanics, security reviews, and audience translations for the top-down on-chain arcade and airdrop ecosystem on Base.
     </div>
   </header>
-
-  <!-- Beta Architecture Lock Banner -->
-  <div class="beta-lock-banner">
-    <div class="beta-lock-title">
-      <span>🔒 Locked Beta Architecture Spec</span>
-    </div>
-    <div class="beta-lock-text">
-      <strong>Core Rules:</strong> Cans are local client state (capped at 10 to unlock manual player pump). <code>fillOil()</code> is public with global cooldown (10s) and a fixed 1 DRB caller bounty (no per-wallet cooldown fighting keepers). BYTE fetch requires holding &ge; <strong>50 $BYTE</strong> + user gas, delivering 1 GEAR every 60s, capped at <strong>60 GEAR per wallet per day</strong>. Repair is a non-destructive balance check (<code>>= 1 GEAR</code>). Junkyard garages are scenery. Treasury is an immutable cold address (confirmed before deploy). If the web interface is offline, all claims and pumps work directly on BaseScan.
-    </div>
-  </div>
 
   <!-- Perspective Switcher: 4 Main Buttons -->
   <div class="button-deck">
@@ -472,6 +434,22 @@
       <span>1. Full Technical Architecture & Smart Contracts</span>
     </div>
 
+    <!-- Beta lock -->
+    <div class="card" style="border-left: 4px solid #10b981; background: rgba(16, 185, 129, 0.05); padding: 18px; margin-bottom: 8px;">
+      <div class="card-header" style="color: #34d399; font-family: var(--font-mono); font-size: 15px; font-weight: 800; letter-spacing: 0.5px;">
+        <span>🔒 Beta lock</span>
+      </div>
+      <div class="card-body" style="color: #e2e8f0; font-size: 13px; line-height: 1.7;">
+        <p>• <strong>Cans are local HUD only (cap 10).</strong> They never enter a calldata argument.</p>
+        <p>• <strong>fillOil() is public.</strong> No amount argument. Global cooldown only (start at 10 seconds). Packet size admin-settable. Caller bounty is a fixed callerBounty in DRB (start at 1). Rest of the packet goes to the Drop Vault. No per-wallet fill cooldown in beta.</p>
+        <p>• <strong>Drop Vault snapshots the live gate</strong> (sum(endId - startId + 1)). Days 0–7 holder 100%. Days 7–14 &ge;1000 GEAR scavenges 90/10. Day 14+ admin NFT #1793 sweeps leftovers: 90% Oil Escrow, 10% immutable treasury.</p>
+        <p>• <strong>BYTE fetch is player-signed,</strong> 1 GEAR, BYTE.balanceOf &gt; 0, per-wallet 60s cooldown. Empty escrow = animation only. Do not promise 60 GEAR/hour.</p>
+        <p>• <strong>Junkyard doors are scenery.</strong> Drive = any GEAR. Junkyard gate = 100 GEAR (reads only).</p>
+        <p>• <strong>Treasury address is constructor-immutable.</strong> x402 cosmetics later. No new token.</p>
+        <p style="margin-top: 8px; color: #94a3b8; font-style: italic; border-top: 1px solid var(--border-subtle); padding-top: 8px;">That is the only fillOil story. The 10-minute per-wallet line and the “1% bounty” line are deleted so they don’t fork the implementation.</p>
+      </div>
+    </div>
+
     <div class="card-grid">
       <div class="card card-highlight">
         <div class="card-header">
@@ -488,12 +466,12 @@
       <div class="card card-highlight">
         <div class="card-header">
           <span>Contract 2: Oil Escrow (DRB Tank)</span>
-          <span class="code-tag">Public Keeper Tap</span>
+          <span class="code-tag">Public Tap</span>
         </div>
         <div class="card-body">
-          <p><strong>Purpose:</strong> Holds community-funded DRB. Dispenses one <code>packetSize</code> (10 DRB) per <code>cooldownSeconds</code> into the Drop Vault.</p>
-          <p><strong>Public Function:</strong> <code>fillOil()</code>. Takes zero amount arguments from caller to eliminate manipulation. Reverts if <code>balance &lt; packetSize</code> or if global cooldown is active.</p>
-          <p><strong>Split Distribution:</strong> 9 DRB transfers to Drop Vault; 1 DRB transfers directly to <code>msg.sender</code> as a fixed caller bounty. Both human street players and automated keeper bots invoke the same function.</p>
+          <p><strong>Purpose:</strong> Holds community-funded DRB. Dispenses one <code>packetSize</code> per <code>cooldownSeconds</code> into the Drop Vault.</p>
+          <p><strong>Public Function:</strong> <code>fillOil()</code>. Takes zero amount arguments from the caller to eliminate manipulation. Reverts if <code>balance &lt; packetSize</code> or if cooldown is active.</p>
+          <p><strong>Split Distribution:</strong> Packet size minus caller bounty transfers to Drop Vault; fixed <code>callerBounty</code> (1 DRB) transfers directly to <code>msg.sender</code>.</p>
           <p><strong>Admin Knobs:</strong> Admin NFT holder #1793 can tune <code>packetSize</code> and <code>cooldownSeconds</code>. Cannot rug or redirect held tokens.</p>
         </div>
       </div>
@@ -506,7 +484,7 @@
         <div class="card-body">
           <p><strong>Funding:</strong> Restricted to calls from Oil Escrow via <code>fundFromEscrow(packetSize)</code>. Takes a real-time snapshot of active collections and eligible counts directly from Gate Registry.</p>
           <p><strong>Days 0–7:</strong> 100% claimed by current NFT holder of that token ID.</p>
-          <p><strong>Days 7–14 (Scavenger Window):</strong> Any wallet with &ge; 1,000 GEAR can claim <em>unclaimed</em> allocations left by inactive holders (90% payout to scavenger; 10% routed to immutable treasury). Active holders who claim during days 0–7 never lose anything.</p>
+          <p><strong>Days 7–14:</strong> Scavenger window. Any wallet with &ge; 1,000 GEAR can claim unclaimed bags for 90% payout; 10% routed to immutable treasury.</p>
           <p><strong>Day 14+:</strong> Holder of Admin NFT #1793 triggers <code>sweepExpired(dropId)</code>. 90% recycled directly back to Oil Escrow, 10% to treasury.</p>
         </div>
       </div>
@@ -518,28 +496,28 @@
         </div>
         <div class="card-body">
           <p><strong>Purpose:</strong> Holds GEAR tokens. Distributes exactly 1 GEAR per transaction.</p>
-          <p><strong>Token Gate:</strong> Requires <code>BYTE.balanceOf(msg.sender) >= 50 * 10**18</code> (minimum 50 $BYTE). Prevents fractional-dust multi-wallet sybil farming.</p>
+          <p><strong>Token Gate:</strong> Requires <code>BYTE.balanceOf(msg.sender) > 0</code> (or configured threshold, e.g. 50 $BYTE).</p>
           <p><strong>Gas Requirement:</strong> Caller pays Base L2 network gas.</p>
-          <p><strong>Cadence & Daily Cap:</strong> 60-second cooldown per wallet (<code>lastClaimedAt[msg.sender] + 60 <= block.timestamp</code>) plus a <strong>hard cap of 60 GEAR per wallet per 24-hour UTC window</strong>. Protects the GEAR escrow vault from bot depletion and preserves the 100 GEAR and 1,000 GEAR economic tiers.</p>
+          <p><strong>Cadence:</strong> 60-second cooldown per wallet. Empty escrow = animation only without claiming.</p>
         </div>
       </div>
     </div>
 
     <!-- 10-Can Deposit & Caller Bounty Pipeline -->
     <div class="section-title">
-      <span>2. The 10-Can Client Loop & Reconciled Public Bounty Pipeline</span>
+      <span>2. The 10-Can Deposit Pipeline & Direct Player Bounty</span>
     </div>
     <div class="card" style="border-left: 3px solid #10b981;">
       <div class="card-header">
         <span>Arcade Gameplay to On-Chain Execution Pipeline</span>
-        <span class="code-tag">Unified Keeper / Player Architecture</span>
+        <span class="code-tag">Instant Player Payout</span>
       </div>
       <div class="card-body">
-        <p><strong>Step 1: Street Arcade Collection:</strong> Player roams the top-down canvas picking up cans. Client holds can inventory up to a capped batch of 10 cans. This is purely local game state.</p>
-        <p><strong>Step 2: Deposit at SUV:</strong> Depositing 10 cans unlocks the player's manual "PUMP TANK" action in the browser.</p>
-        <p><strong>Step 3: Wallet Sign & Fill:</strong> Player signs the <code>fillOil()</code> transaction and pays a fraction of a cent in Base gas. The contract enforces a 10-second global cooldown to prevent same-block reentrancy or bot collisions.</p>
-        <p><strong>Step 4: Split Distribution:</strong> The Oil Tank releases 10 DRB: 9 DRB routes into the Drop Vault for NFT holders/scavengers, while 1 DRB transfers immediately to <code>msg.sender</code> as a fixed caller bounty.</p>
-        <p><strong>Keeper Bot Synergy:</strong> If no human player is active on the street, automated keeper bots monitor the contract and call <code>fillOil()</code> when the global cooldown resets. The keeper pays the network gas and earns the 1 DRB bounty, while the 9 DRB still drops into the community vault. The game loop never stalls.</p>
+        <p><strong>Step 1: Street Arcade Collection:</strong> Player roams the top-down canvas picking up cans. Client holds can inventory up to a capped batch of 10 cans.</p>
+        <p><strong>Step 2: Deposit at SUV:</strong> Player interacts with the red SUV to deposit the 10 cans into the tank.</p>
+        <p><strong>Step 3: Wallet Sign & Fill:</strong> Game prompts wallet connection. Player signs the <code>fillOil()</code> transaction and pays a fraction of a cent in Base network gas. The contract enforces a 10-second global tank cooldown to prevent same-block reentrancy or bot collisions (no per-wallet cooldown in beta).</p>
+        <p><strong>Step 4: Split Distribution:</strong> The Oil Tank contract releases 10 DRB: 9 DRB routes into the Drop Vault for NFT holders/scavengers, while 1 DRB transfers immediately to msg.sender as a direct in-game reward for pumping the tank.</p>
+        <p><strong>Bot Dynamic:</strong> If an automated keeper bot calls fillOil() first, the bot pays the network gas and earns the 1 DRB bounty, while the 9 DRB still drops into the community vault. The game loop never stalls.</p>
       </div>
     </div>
     <div class="card" style="border-left: 3px solid #ec4899;">
@@ -564,14 +542,13 @@
 |   Refill DRB Tank  |        |  (Cooldown + Tap)   |        |  (Snapshots Gates) |
 +--------------------+        +---------------------+        +--------------------+
                                          |                              |
-                             fillOil() (Public/1 DRB Bounty)   +------------+------------+
+                             fillOil() (Public/Bounty)     +------------+------------+
                                                            |                         |
                                                     Days 0 - 7                Days 7 - 14
                                                     Holder 100%            GEAR Scavenger 90/10
-                                                           |                   (Unclaimed Only)
-                                                           v                         |
-                                                    NFT Holder Wallet                v
-                                                                             Scavenger Wallet
+                                                           |                         |
+                                                           v                         v
+                                                    NFT Holder Wallet         Scavenger Wallet
                                                                                      +
                                                                              10% Immutable Treasury
                                                                                      |
@@ -594,8 +571,8 @@
         <div class="card-body">
           <p>Most Web3 games print inflationary reward tokens that collapse to zero value. CAPs Garage creates zero new tokens. Instead, it activates three existing market tokens on Base:</p>
           <p><strong>DRB (Fuel):</strong> Acts as the reward pool. Community members and sponsors deposit DRB to fuel airdrops to partner NFT communities.</p>
-          <p><strong>BYTE (Holding Gate):</strong> Holding &ge; 50 BYTE unlocks the ability to collect 1 GEAR every 60 seconds from BYTE the dog, creating persistent holding demand.</p>
-          <p><strong>GEAR (Utility Key & Sieve):</strong> Required to drive vehicles (balance check), unlock the 500-door Junkyard (100 GEAR), and scavenge abandoned reward pools (1,000 GEAR). Capped at 60 GEAR/wallet/day to protect value.</p>
+          <p><strong>BYTE (Acquisition Tool):</strong> Holding any quantity of BYTE gives the player a continuous drip of utility tools (GEAR).</p>
+          <p><strong>GEAR (Utility Key & Sieve):</strong> Required to drive vehicles, unlock high-tier junkyards (100 GEAR), and scavenge abandoned reward pools (1,000 GEAR).</p>
         </div>
       </div>
 
@@ -604,7 +581,7 @@
           <span>Automated Treasury Revenue (10% Mop)</span>
         </div>
         <div class="card-body">
-          <p>The contract features an immutable treasury address set at deployment (e.g. <code>0xA12506f742F4AB0980a57264871DB56A1A150793</code> — confirmed before deploy). There are no admin override keys or backdoor withdrawal functions.</p>
+          <p>The contract features an immutable treasury address set at deployment (e.g. <code>0xA12506f742F4AB0980a57264871DB56A1A150793</code>). There are no admin override keys or backdoor withdrawal functions.</p>
           <p><strong>Revenue Source:</strong> When eligible NFT holders fail to claim their rewards within 7 days, open-market scavengers claim the assets, generating an automatic 10% fee directly into the cold treasury.</p>
           <p><strong>Unclaimed Dust Sweep:</strong> After 14 days, all remaining unclaimed rewards are swept: 90% is recycled into the game's fuel tank, and 10% is remitted to the treasury.</p>
         </div>
@@ -617,7 +594,7 @@
         <div class="card-body">
           <p>Traditional games require centralized game servers, databases, AWS hosting, and monthly maintenance retainers. CAPs Garage is built entirely serverless:</p>
           <p><strong>Frontend:</strong> Static files hosted on decentralized IPFS or Arweave at virtually zero cost.</p>
-          <p><strong>Execution Layer:</strong> Base smart contracts. Gas for reward distributions is either paid by active players or captured by decentralized arbitrage bots via caller bounties.</p>
+          <p><strong>Execution Layer:</strong> Base smart contracts. Gas for reward distributions can be completely crowdsourced or captured by decentralized arbitrage bots via caller bounties.</p>
         </div>
       </div>
 
@@ -627,8 +604,8 @@
         </div>
         <div class="card-body">
           <p><strong>Top of Funnel:</strong> Anyone can roam the street arcade without a wallet, picking up virtual cans.</p>
-          <p><strong>First Conversion:</strong> Dog offers 1 free GEAR. User connects a wallet with &ge; 50 BYTE to claim.</p>
-          <p><strong>Second Conversion:</strong> User discovers driving requires holding &ge; 1 GEAR, and the 500-door Junkyard requires 100 GEAR (at least 2 days of active claiming).</p>
+          <p><strong>First Conversion:</strong> Dog offers 1 free GEAR. User connects a wallet to claim.</p>
+          <p><strong>Second Conversion:</strong> User discovers driving requires holding GEAR, and the 500-door Junkyard requires 100 GEAR.</p>
           <p><strong>Whale Conversion:</strong> Users acquire 1,000+ GEAR to operate automated scavenger operations that harvest expired airdrop pools.</p>
         </div>
       </div>
@@ -694,22 +671,22 @@
 
       <div class="card card-highlight">
         <div class="card-header">
-          <span>2. BYTE The Dog & Tools</span>
+          <span>2. BYTE The Dog & Free Tools</span>
         </div>
         <div class="card-body">
-          <p>Every 60 seconds while you're exploring the map, a friendly dog named BYTE trots over to your character. BYTE barks and brings you a tool: <strong>1 GEAR</strong>.</p>
-          <p>To stash the tool in your digital pack, you hold at least 50 BYTE tokens and pay network gas. You can collect up to 60 tools a day from BYTE!</p>
-          <p>If you don't collect, no worries—BYTE roams back a minute later with another offer.</p>
+          <p>Every 60 seconds while you're exploring the map, a friendly dog named BYTE trots over to your character. BYTE barks and brings you a free tool: <strong>1 GEAR</strong>.</p>
+          <p>If you don't have a digital backpack connected yet, the game simply asks: <em>"Want to keep this tool? Connect a wallet and stash it in your inventory, or it hits the dirt."</em></p>
+          <p>If you connect, BYTE hands you the item. If you ignore it, no worries—BYTE will roam back a minute later with another offer.</p>
         </div>
       </div>
 
       <div class="card card-highlight">
         <div class="card-header">
-          <span>3. Driving The Red SUV (Fast Travel)</span>
+          <span>3. Fixing The Red SUV (Fast Travel)</span>
         </div>
         <div class="card-body">
-          <p>Walking is fun, but driving is better. Once you hold at least 1 GEAR in your inventory, you can walk up to the SUV and tap <strong>Drive</strong>.</p>
-          <p>Your character hops into the driver's seat. Your speed doubles and you can drift across the asphalt, collecting oil cans at high velocity. (Note: Driving checks your balance; it does not consume or destroy your GEAR tool).</p>
+          <p>Walking is fun, but driving is better. Once you collect tools, you can walk up to the broken-down SUV and tap <strong>Repair</strong>.</p>
+          <p>As long as you have a GEAR in your inventory, your character hops into the driver's seat. Your speed doubles and you can drift across the asphalt, collecting oil cans at high velocity.</p>
         </div>
       </div>
 
@@ -741,11 +718,11 @@
         </tr>
         <tr>
           <td>Forced credit card purchases ($0.99 energy packs).</td>
-          <td>Free to roam. Dog gives you tools on a 60s cooldown if you hold 50 BYTE.</td>
+          <td>Free to roam. Dog gives you free items on a minute timer.</td>
         </tr>
         <tr>
           <td>Servers get shut down after 2 years when company goes bust.</td>
-          <td>Smart contracts live permanently on Base. If the web UI ever went down, claims and actions still work directly on BaseScan.</td>
+          <td>Smart contracts live permanently on Base. Game cannot be deleted.</td>
         </tr>
         <tr>
           <td>Virtual currency cannot be traded outside the app.</td>
@@ -764,13 +741,13 @@
     <div class="card-grid">
       <div class="card card-highlight">
         <div class="card-header">
-          <span>The 50 BYTE + 60 GEAR/Day Farm</span>
-          <span class="code-tag">Daily Quota</span>
+          <span>The Free GEAR Farm Loop</span>
+          <span class="code-tag">Faucet Glitch</span>
         </div>
         <div class="card-body">
-          <p><strong>Requirement:</strong> Hold &ge; 50 $BYTE in your wallet on Base.</p>
+          <p><strong>Requirement:</strong> Hold literally 0.000001 $BYTE in your wallet on Base.</p>
           <p><strong>The Play:</strong> Keep the game open in a browser tab. Every 60 seconds, BYTE walks up with 1 real $GEAR. Sign the tx, pay ~$0.0008 Base gas, and pocket 1 GEAR.</p>
-          <p>Capped at <strong>60 GEAR per wallet per day</strong>. Hit 100 GEAR (2 days) and you enter the Junkyard VIP club. Hit 1,000 GEAR (17 days) and you become a licensed bag scavenger.</p>
+          <p>60 GEAR per hour just for chilling on the street. Hit 100 GEAR and you enter the Junkyard VIP club. Hit 1,000 GEAR and you become a licensed bag scavenger.</p>
         </div>
       </div>
 
@@ -781,8 +758,8 @@
         </div>
         <div class="card-body">
           <p>When the oil tank pumps, real DRB drops into the vault split across all registered NFT collections (Letters to CAP, Midas, etc.).</p>
-          <p><strong>Days 0–7:</strong> The NFT holder has 7 days to claim their 100% allocation. Safe and untouched.</p>
-          <p><strong>Days 7–14 (The Scavenge Arena):</strong> If the holder is asleep, on vacation, or forgot to claim, ANY degen holding &ge; 1,000 GEAR can call <code>claimScavenger()</code> and snatch <strong>90% of the unclaimed rewards</strong>. 10% goes to the immutable treasury as a cleanup fee.</p>
+          <p><strong>Days 0–7:</strong> The NFT holder has 7 days to claim their 100% allocation.</p>
+          <p><strong>Days 7–14 (The Scavenge Arena):</strong> If the holder is asleep, on vacation, or forgot to check the dApp, ANY degens holding &ge; 1,000 GEAR can step in, call <code>claimScavenger()</code>, and snatch <strong>90% of their rewards</strong> right out of their hands. 10% goes to the treasury as a cleanup fee.</p>
         </div>
       </div>
 
@@ -792,8 +769,8 @@
           <span class="code-tag">1 DRB Caller Bounty</span>
         </div>
         <div class="card-body">
-          <p>Instead of relying on a centralized server to pump oil into the drop vault, we attach a fixed 1 DRB bounty to <code>fillOil()</code>.</p>
-          <p>Base arbitrage bots and keeper bots will monitor the contract 24/7. The millisecond the 10s cooldown expires, bots frontrun each other, pay the network gas out of their own pocket, and execute the drop for the community just to grab that 1 DRB reward.</p>
+          <p>Instead of relying on a centralized server to pump oil into the drop vault, we attach a fixed 1 DRB caller bounty to <code>fillOil()</code>.</p>
+          <p>Base arbitrage bots and keeper bots will monitor the contract 24/7. The millisecond the 10s global cooldown expires, bots frontrun each other, pay the network gas out of their own pocket, and execute the drop for the community just to grab that 1 DRB reward.</p>
         </div>
       </div>
 
@@ -823,13 +800,13 @@
       <tbody>
         <tr>
           <td><strong>Drive SUV</strong></td>
-          <td>&ge; 1 GEAR (balance check)</td>
+          <td>&ge; 1 GEAR</td>
           <td>2x movement speed in street & junkyard maze.</td>
         </tr>
         <tr>
           <td><strong>Dog Fetch</strong></td>
-          <td>&ge; 50 BYTE + Gas</td>
-          <td>1 GEAR every 60s (capped at 60 GEAR/day per wallet).</td>
+          <td>&gt; 0 BYTE</td>
+          <td>1 GEAR every 60 seconds.</td>
         </tr>
         <tr>
           <td><strong>Junkyard Gate</strong></td>
