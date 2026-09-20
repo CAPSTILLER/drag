@@ -480,7 +480,7 @@
     </div>
     <div class="beta-lock-content">
       <p>• <strong>Cans are local HUD only (cap 10).</strong> They never enter a calldata argument.</p>
-      <p>• <strong>fillOil() is public.</strong> No amount argument. Global cooldown only (start at 10 seconds). Packet size admin-settable. Caller bounty is a fixed callerBounty in DRB (start at 1). Rest of the packet goes to the Drop Vault. No per-wallet fill cooldown in beta.</p>
+      <p>• <strong>fillOil() is public.</strong> No amount argument. Global cooldown only (start at 10 seconds). Packet size admin-settable. Caller bounty is a fixed callerBounty in DRB (start at 1). Rest of the packet goes to the Drop Vault. Keepers may call the same function with no cans. No per-wallet fill cooldown in beta.</p>
       <p>• <strong>Drop Vault snapshots the live gate</strong> (sum(endId - startId + 1)). Days 0–7 holder 100%. Days 7–14 &ge;1000 GEAR scavenges 90/10. Day 14+ admin NFT #1793 sweeps leftovers: 90% Oil Escrow, 10% immutable treasury.</p>
       <p>• <strong>BYTE fetch is player-signed,</strong> 1 GEAR, BYTE.balanceOf &gt; 0, per-wallet 60s cooldown until escrow is empty. Empty escrow = animation only. Do not promise 60 GEAR/hour.</p>
       <p>• <strong>Junkyard doors are scenery.</strong> Drive = any GEAR. Junkyard gate = 100 GEAR (reads only).</p>
@@ -553,7 +553,7 @@
           <span class="code-tag">Pull-Claim & Scavenge</span>
         </div>
         <div class="card-body">
-          <p><strong>Funding:</strong> Restricted to calls from Oil Escrow via <code>fundFromEscrow(packetSize - callerBounty)</code>. The vault receives <code>packetSize - callerBounty</code> (9 DRB out of 10) while <code>callerBounty</code> (1 DRB) transfers directly to <code>msg.sender</code>. Takes a real-time snapshot of active collections and eligible counts directly from Gate Registry.</p>
+          <p><strong>Funding:</strong> Restricted to calls from Oil Escrow via <code>fundFromEscrow(uint256 netAmount)</code>. The vault receives <code>netAmount = packetSize - callerBounty</code> (9 DRB out of 10) while <code>callerBounty</code> (1 DRB) transfers directly to <code>msg.sender</code>. The 1 DRB caller bounty never enters the Drop Vault split. Takes a real-time snapshot of active collections and eligible counts directly from Gate Registry.</p>
           <p><strong>Days 0–7:</strong> 100% claimed by current NFT holder of that token ID.</p>
           <p><strong>Days 7–14:</strong> Scavenger window. Any wallet with &ge; 1,000 GEAR can claim unclaimed bags for 90% payout; 10% routed to immutable treasury.</p>
           <p><strong>Day 14+:</strong> Holder of Admin NFT #1793 triggers <code>sweepExpired(dropId)</code>. 90% recycled directly back to Oil Escrow, 10% to treasury.</p>
@@ -574,9 +574,9 @@
       </div>
     </div>
 
-    <!-- 10-Can Deposit & Caller Bounty Pipeline -->
+    <!-- Oil Deposit & Caller Bounty Pipeline -->
     <div class="section-title">
-      <span>2. The 10-Can Deposit Pipeline & Direct Player Bounty</span>
+      <span>2. The Oil Deposit Pipeline & Direct Player Bounty (Cans = HUD)</span>
     </div>
     <div class="card" style="border-left: 3px solid #10b981;">
       <div class="card-header">
@@ -642,7 +642,7 @@
         <div class="card-body">
           <p>Most Web3 games print inflationary reward tokens that collapse to zero value. CAPs Garage creates zero new tokens. Instead, it activates three existing market tokens on Base:</p>
           <p><strong>DRB (Fuel):</strong> Acts as the reward pool. Community members and sponsors deposit DRB to fuel airdrops to partner NFT communities.</p>
-          <p><strong>BYTE (Acquisition Tool):</strong> Holding dust BYTE gives the player a continuous drip of utility tools (GEAR).</p>
+          <p><strong>BYTE (Acquisition Tool):</strong> Holding dust BYTE lets the player claim 1 GEAR per 60s from BYTE until the escrow is empty.</p>
           <p><strong>GEAR (Utility Key & Sieve):</strong> Required to drive vehicles, unlock high-tier junkyards (100 GEAR), and scavenge abandoned reward pools (1,000 GEAR).</p>
         </div>
       </div>
