@@ -112,6 +112,72 @@
       max-width: 900px;
     }
 
+    /* Beta Lock Section */
+    .beta-lock-box {
+      background: #0d151e;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-left: 4px solid #10b981;
+      border-radius: 8px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .beta-lock-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .beta-lock-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #34d399;
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .beta-lock-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .beta-lock-content {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: #e2e8f0;
+      font-size: 13.5px;
+      line-height: 1.7;
+    }
+
+    .beta-lock-content p {
+      margin: 0;
+    }
+
+    .beta-lock-note {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+      margin-top: 4px;
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-style: italic;
+    }
+
     /* Perspective Switcher (The 4 Main Buttons) */
     .button-deck {
       display: grid;
@@ -389,7 +455,7 @@
       <div class="hud-title">
         <span>CAPs Garage</span>
         <span class="badge-base">Base Chain 8453</span>
-        <span class="badge-base" style="border-color: #10b981; color: #34d399;">10-Can Pump & Instant Reward Loop</span>
+        <span class="badge-base" style="border-color: #10b981; color: #34d399;">Public fillOil() & Fixed Caller Bounty</span>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <div class="token-pills">
@@ -400,9 +466,30 @@
       </div>
     </div>
     <div class="hud-subtitle">
-      Master architectural dossier, smart contract mechanics, security reviews, and audience translations for the top-down on-chain arcade and airdrop ecosystem on Base.
+      Master architectural blueprint, smart contract mechanics, and locked beta specification for CAPs Garage on Base.
     </div>
   </header>
+
+  <!-- Section 0: Beta Lock (First Section on the Blueprint) -->
+  <section class="beta-lock-box" id="beta-lock-top">
+    <div class="beta-lock-header">
+      <div class="beta-lock-title">
+        <span>🔒 Beta lock</span>
+      </div>
+      <span class="beta-lock-tag">First Section • Canonical Lock</span>
+    </div>
+    <div class="beta-lock-content">
+      <p>• <strong>Cans are local HUD only (cap 10).</strong> They never enter a calldata argument.</p>
+      <p>• <strong>fillOil() is public.</strong> No amount argument. Global cooldown only (start at 10 seconds). Packet size admin-settable. Caller bounty is a fixed callerBounty in DRB (start at 1). Rest of the packet goes to the Drop Vault. No per-wallet fill cooldown in beta.</p>
+      <p>• <strong>Drop Vault snapshots the live gate</strong> (sum(endId - startId + 1)). Days 0–7 holder 100%. Days 7–14 &ge;1000 GEAR scavenges 90/10. Day 14+ admin NFT #1793 sweeps leftovers: 90% Oil Escrow, 10% immutable treasury.</p>
+      <p>• <strong>BYTE fetch is player-signed,</strong> 1 GEAR, BYTE.balanceOf &gt; 0, per-wallet 60s cooldown until escrow is empty. Empty escrow = animation only. Do not promise 60 GEAR/hour.</p>
+      <p>• <strong>Junkyard doors are scenery.</strong> Drive = any GEAR. Junkyard gate = 100 GEAR (reads only).</p>
+      <p>• <strong>Treasury address is constructor-immutable.</strong> x402 cosmetics later. No new token.</p>
+      <div class="beta-lock-note">
+        That is the only fillOil story. The 10-minute per-wallet line and the “1% bounty” line are deleted so they don’t fork the implementation.
+      </div>
+    </div>
+  </section>
 
   <!-- Perspective Switcher: 4 Main Buttons -->
   <div class="button-deck">
@@ -424,7 +511,7 @@
     <button class="mode-btn" id="btn-degen" onclick="switchMode('degen')">
       <span class="mode-btn-tag">Alpha & Strategy</span>
       <span class="mode-btn-title">Degen</span>
-      <span class="mode-btn-desc">PVP scavenge timers, 90/10 holder bags, the 60s GEAR faucet, and bot gas-slavery breakdown.</span>
+      <span class="mode-btn-desc">PVP scavenge timers, 90/10 holder bags, dog fetch until escrow empty, and bot keeper rewards.</span>
     </button>
   </div>
 
@@ -432,22 +519,6 @@
   <div class="view-panel active" id="panel-tech">
     <div class="section-title">
       <span>1. Full Technical Architecture & Smart Contracts</span>
-    </div>
-
-    <!-- Beta lock -->
-    <div class="card" style="border-left: 4px solid #10b981; background: rgba(16, 185, 129, 0.05); padding: 18px; margin-bottom: 8px;">
-      <div class="card-header" style="color: #34d399; font-family: var(--font-mono); font-size: 15px; font-weight: 800; letter-spacing: 0.5px;">
-        <span>🔒 Beta lock</span>
-      </div>
-      <div class="card-body" style="color: #e2e8f0; font-size: 13px; line-height: 1.7;">
-        <p>• <strong>Cans are local HUD only (cap 10).</strong> They never enter a calldata argument.</p>
-        <p>• <strong>fillOil() is public.</strong> No amount argument. Global cooldown only (start at 10 seconds). Packet size admin-settable. Caller bounty is a fixed callerBounty in DRB (start at 1). Rest of the packet goes to the Drop Vault. No per-wallet fill cooldown in beta.</p>
-        <p>• <strong>Drop Vault snapshots the live gate</strong> (sum(endId - startId + 1)). Days 0–7 holder 100%. Days 7–14 &ge;1000 GEAR scavenges 90/10. Day 14+ admin NFT #1793 sweeps leftovers: 90% Oil Escrow, 10% immutable treasury.</p>
-        <p>• <strong>BYTE fetch is player-signed,</strong> 1 GEAR, BYTE.balanceOf &gt; 0, per-wallet 60s cooldown. Empty escrow = animation only. Do not promise 60 GEAR/hour.</p>
-        <p>• <strong>Junkyard doors are scenery.</strong> Drive = any GEAR. Junkyard gate = 100 GEAR (reads only).</p>
-        <p>• <strong>Treasury address is constructor-immutable.</strong> x402 cosmetics later. No new token.</p>
-        <p style="margin-top: 8px; color: #94a3b8; font-style: italic; border-top: 1px solid var(--border-subtle); padding-top: 8px;">That is the only fillOil story. The 10-minute per-wallet line and the “1% bounty” line are deleted so they don’t fork the implementation.</p>
-      </div>
     </div>
 
     <div class="card-grid">
@@ -492,13 +563,13 @@
       <div class="card card-highlight">
         <div class="card-header">
           <span>Contract 4: BYTE Fetch Escrow</span>
-          <span class="code-tag">Anti-Drain Faucet</span>
+          <span class="code-tag">Dog Utility Tap</span>
         </div>
         <div class="card-body">
           <p><strong>Purpose:</strong> Holds GEAR tokens. Distributes exactly 1 GEAR per transaction.</p>
-          <p><strong>Token Gate:</strong> Requires <code>BYTE.balanceOf(msg.sender) > 0</code> (or configured threshold, e.g. 50 $BYTE).</p>
+          <p><strong>Token Gate:</strong> Requires <code>BYTE.balanceOf(msg.sender) > 0</code>.</p>
           <p><strong>Gas Requirement:</strong> Caller pays Base L2 network gas.</p>
-          <p><strong>Cadence:</strong> 60-second cooldown per wallet. Empty escrow = animation only without claiming.</p>
+          <p><strong>Cadence & Escrow:</strong> 1 GEAR per wallet per 60s cooldown until escrow is empty. Empty escrow = animation only. Do not promise 60 GEAR/hour.</p>
         </div>
       </div>
     </div>
@@ -515,9 +586,9 @@
       <div class="card-body">
         <p><strong>Step 1: Street Arcade Collection:</strong> Player roams the top-down canvas picking up cans. Client holds can inventory up to a capped batch of 10 cans.</p>
         <p><strong>Step 2: Deposit at SUV:</strong> Player interacts with the red SUV to deposit the 10 cans into the tank.</p>
-        <p><strong>Step 3: Wallet Sign & Fill:</strong> Game prompts wallet connection. Player signs the <code>fillOil()</code> transaction and pays a fraction of a cent in Base network gas. The contract enforces a 10-second global tank cooldown to prevent same-block reentrancy or bot collisions (no per-wallet cooldown in beta).</p>
-        <p><strong>Step 4: Split Distribution:</strong> The Oil Tank contract releases 10 DRB: 9 DRB routes into the Drop Vault for NFT holders/scavengers, while 1 DRB transfers immediately to msg.sender as a direct in-game reward for pumping the tank.</p>
-        <p><strong>Bot Dynamic:</strong> If an automated keeper bot calls fillOil() first, the bot pays the network gas and earns the 1 DRB bounty, while the 9 DRB still drops into the community vault. The game loop never stalls.</p>
+        <p><strong>Step 3: Public fillOil() & Global Cooldown:</strong> Cans stay local HUD only (cap 10) to unlock the in-game pump button. The on-chain <code>fillOil()</code> function is completely public with zero amount or can arguments. Anyone (player or keeper bot) can call it. The contract enforces a 10-second global tank cooldown to prevent same-block collisions. There is no per-wallet cooldown in beta.</p>
+        <p><strong>Step 4: Split Distribution:</strong> The Oil Tank contract releases 10 DRB: 9 DRB routes into the Drop Vault for NFT holders/scavengers, while 1 DRB transfers immediately to msg.sender as a fixed caller bounty for pumping the tank.</p>
+        <p><strong>Bot Dynamic:</strong> If an automated keeper bot calls fillOil() first, the bot pays the network gas and earns the fixed 1 DRB caller bounty, while the 9 DRB still drops into the community vault. The game loop never stalls.</p>
       </div>
     </div>
     <div class="card" style="border-left: 3px solid #ec4899;">
@@ -527,7 +598,7 @@
       <div class="card-body">
         <p><strong>The Proposal:</strong> A 3-step contract where the browser triggers Call 1, solves a captcha, and triggers Call 2 within a 10-second window to release 10 DRB.</p>
         <p><strong>EVM Execution Reality:</strong> Smart contracts are public and deterministic. A bot monitoring the mempool or the public blockchain can call both Contract 1 and Contract 2 within the exact same block (or even via a single atomic smart contract transaction) in under 20 milliseconds. Furthermore, on-chain code cannot independently verify whether a web user solved an image captcha in their browser without an off-chain cryptographic signature.</p>
-        <p><strong>The Real Solution (Option A — Fixed Caller Bounty):</strong> Instead of fighting bots with brittle on-chain timers, offer a fixed 1 DRB caller bounty inside <code>fillOil()</code>. MEV searchers will happily pay Base gas 24/7 to pump the tank the instant cooldown resets, completely removing the need for you to run servers or pay gas.</p>
+        <p><strong>The Real Solution (Option A — Fixed Caller Bounty):</strong> Instead of fighting bots with brittle on-chain timers, offer a fixed callerBounty (1 DRB) inside <code>fillOil()</code>. MEV searchers and keepers will happily pay Base gas 24/7 to pump the tank the instant the 10-second global cooldown resets, completely removing the need for you to run servers or pay gas.</p>
         <p><strong>The Real Solution (Option B — EIP-712 Signed Turnstile):</strong> If you strictly require human verification before a relayer submits gas, the user solves an off-chain Cloudflare Turnstile in the browser. A lightweight serverless backend verifies the token and signs an EIP-712 permit: <code>(userAddress, nonce, deadline)</code>. The relayer submits the transaction only when the signature is valid.</p>
       </div>
     </div>
@@ -674,9 +745,9 @@
           <span>2. BYTE The Dog & Free Tools</span>
         </div>
         <div class="card-body">
-          <p>Every 60 seconds while you're exploring the map, a friendly dog named BYTE trots over to your character. BYTE barks and brings you a free tool: <strong>1 GEAR</strong>.</p>
+          <p>While exploring the map, a friendly dog named BYTE trots over to your character. BYTE barks and brings you a tool: <strong>1 GEAR</strong> (1 GEAR per wallet per 60s until escrow is empty).</p>
           <p>If you don't have a digital backpack connected yet, the game simply asks: <em>"Want to keep this tool? Connect a wallet and stash it in your inventory, or it hits the dirt."</em></p>
-          <p>If you connect, BYTE hands you the item. If you ignore it, no worries—BYTE will roam back a minute later with another offer.</p>
+          <p>If you connect, BYTE hands you the item. When the tool escrow is empty, BYTE still plays the fetch animation.</p>
         </div>
       </div>
 
@@ -741,13 +812,13 @@
     <div class="card-grid">
       <div class="card card-highlight">
         <div class="card-header">
-          <span>The Free GEAR Farm Loop</span>
-          <span class="code-tag">Faucet Glitch</span>
+          <span>BYTE Fetch Escrow</span>
+          <span class="code-tag">Dog Utility</span>
         </div>
         <div class="card-body">
-          <p><strong>Requirement:</strong> Hold literally 0.000001 $BYTE in your wallet on Base.</p>
-          <p><strong>The Play:</strong> Keep the game open in a browser tab. Every 60 seconds, BYTE walks up with 1 real $GEAR. Sign the tx, pay ~$0.0008 Base gas, and pocket 1 GEAR.</p>
-          <p>60 GEAR per hour just for chilling on the street. Hit 100 GEAR and you enter the Junkyard VIP club. Hit 1,000 GEAR and you become a licensed bag scavenger.</p>
+          <p><strong>Requirement:</strong> Hold $BYTE in your wallet on Base (<code>BYTE.balanceOf > 0</code>).</p>
+          <p><strong>The Play:</strong> BYTE the dog trots over with 1 $GEAR. Player signs the transaction and pays Base network gas.</p>
+          <p>BYTE fetch is player-signed: <strong>1 GEAR per wallet per 60s until escrow is empty</strong>. Empty escrow = animation only. Do not promise 60 GEAR/hour.</p>
         </div>
       </div>
 
@@ -765,7 +836,7 @@
 
       <div class="card card-highlight">
         <div class="card-header">
-          <span>Making MEV Bots Our Gas Slaves</span>
+          <span>Keeper & Bot Integration</span>
           <span class="code-tag">1 DRB Caller Bounty</span>
         </div>
         <div class="card-body">
@@ -806,7 +877,7 @@
         <tr>
           <td><strong>Dog Fetch</strong></td>
           <td>&gt; 0 BYTE</td>
-          <td>1 GEAR every 60 seconds.</td>
+          <td>1 GEAR per wallet per 60s until escrow is empty.</td>
         </tr>
         <tr>
           <td><strong>Junkyard Gate</strong></td>
