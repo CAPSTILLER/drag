@@ -6,16 +6,16 @@ Live app file: `index.html` (runnable in any browser with zero backend requireme
 
 ---
 
-## 🔒 Beta Architecture Lock
+## 🔒 Beta Lock
 
-To eliminate spec drift and reconcile the arcade client with decentralized on-chain execution:
-- **Cans are Client-Side**: Picking up 10 cans on the canvas is an off-chain UI unlock for the player's manual "PUMP" button. The on-chain contract does not take or verify can counts.
-- **`fillOil()` is Public & Permissionless**: Anyone (players or automated keeper/MEV bots) can call `fillOil()` when the global cooldown resets. No per-wallet cooldown fighting keepers.
-- **Fixed Caller Bounty**: 10 DRB released per pump: **1 DRB flat caller bounty** directly to `msg.sender` (compensating gas and rewarding activity), **9 DRB** to the community Drop Vault.
-- **BYTE Dog Faucet**: Requires holding &ge; **50 $BYTE** tokens. Caller pays Base network gas. 60-second cooldown between claims. Hard cap of **60 GEAR per wallet per day** (24h UTC window).
-- **Repair is Non-Destructive**: Driving the SUV checks `balanceOf(user) >= 1 GEAR`. It does not spend or burn the token.
-- **Scavenger Arena (PVP)**: Days 7–14 scavenger rights apply **strictly to unclaimed allocations** left by inactive holders. Active holders who claim during Days 0–7 never lose anything.
-- **Frontend vs Protocol Immutability**: The smart contracts, token balances, and claim registries live permanently on Base. If the Vercel/web canvas ever went offline, claims and pump calls can be executed directly on BaseScan.
+- **Cans are local HUD only (cap 10).** They never enter a calldata argument.
+- **`fillOil()` is public.** No amount argument. Global cooldown only (start at 10 seconds). Packet size admin-settable. Caller bounty is a fixed `callerBounty` in DRB (start at 1). Rest of the packet goes to the Drop Vault. No per-wallet fill cooldown in beta.
+- **Drop Vault snapshots the live gate** (`sum(endId - startId + 1)`). Days 0–7 holder 100%. Days 7–14 &ge;1000 GEAR scavenges 90/10. Day 14+ admin NFT #1793 sweeps leftovers: 90% Oil Escrow, 10% immutable treasury.
+- **BYTE fetch is player-signed,** 1 GEAR, `BYTE.balanceOf > 0`, per-wallet 60s cooldown. Empty escrow = animation only. Do not promise 60 GEAR/hour.
+- **Junkyard doors are scenery.** Drive = any GEAR. Junkyard gate = 100 GEAR (reads only).
+- **Treasury address is constructor-immutable.** x402 cosmetics later. No new token.
+
+*Note on fillOil:* This is the only `fillOil` implementation story. The 10-minute per-wallet throttle and "1% bounty" references have been eliminated to prevent contract fork drift.
 
 ---
 
@@ -39,9 +39,9 @@ CAPs Garage connects three core utility tokens on Base without inflating supply 
 2. **Oil Escrow (`fillOil`) — Public Keeper Architecture**
    - Holds community-deposited $DRB fuel.
    - Public function `fillOil()` with zero input arguments.
-   - Dispenses fixed `packetSize` (10 DRB) per `cooldownSeconds` (e.g. 10s–60s global tank cooldown).
-   - **Split Distribution**: 9 DRB into Drop Vault, 1 DRB flat `callerBounty` to `msg.sender`.
-   - **Keeper Dynamic**: When a human player collects 10 cans on the street, they can sign `fillOil()` and pocket the 1 DRB reward. If no human is active, arbitrage/keeper bots call it and pay the gas, keeping the vault funded 24/7.
+   - Dispenses fixed `packetSize` (admin-settable, e.g. 10 DRB) per `cooldownSeconds` (10s global tank cooldown).
+   - **Split Distribution**: Packet size minus caller bounty routes to Drop Vault; fixed `callerBounty` (1 DRB) directly to `msg.sender`.
+   - **No per-wallet cooldown**: Anyone (player or keeper bot) can trigger the tap whenever global cooldown resets.
 
 3. **Drop Vault (Pull-Claim & Scavenger Arena)**
    - Takes real-time snapshot of active collections from Gate Registry.
@@ -49,15 +49,12 @@ CAPs Garage connects three core utility tokens on Base without inflating supply 
    - **Days 7–14 (Scavenger Window)**: Any player holding &ge; 1,000 GEAR can claim **unclaimed** allocations (90% payout to scavenger, 10% to cold immutable treasury). Holders who claimed on time are 100% safe.
    - **Day 14+ (Dust Sweep)**: Holder of Admin NFT #1793 sweeps expired leftovers: 90% recycled back into Oil Escrow, 10% to cold treasury.
 
-4. **BYTE Fetch Escrow (`claimTool`) — Anti-Drain & Sybil Protected**
-   - **Token Gate**: Requires `BYTE.balanceOf(msg.sender) >= 50 * 10**18` (minimum 50 $BYTE). Eliminates fractional-dust multi-tab sybil farming and drives real holding demand for $BYTE.
+4. **BYTE Fetch Escrow (`claimTool`)**
+   - **Token Gate**: Requires `BYTE.balanceOf(msg.sender) > 0` (or configured threshold, e.g. 50 $BYTE).
    - **Gas Requirement**: Caller signs transaction and pays Base L2 network gas.
    - **Cooldown**: 60 seconds per wallet (`lastClaimedAt[msg.sender] + 60 <= block.timestamp`).
-   - **Hard Daily Wallet Cap**: Maximum **60 GEAR per wallet per 24-hour UTC window** (`dailyClaims[msg.sender] < 60`).
-   - **Economic Balance**:
-     - Prevents bots from siphoning 1,440 GEAR/day per wallet.
-     - Preserves the economic value of the 100 GEAR Junkyard Gate (requires at least 2 full days of dedicated claiming).
-     - Protects the 1,000 GEAR Scavenger threshold (requires at least 17 days of active gameplay or secondary market trading).
+   - **Daily Wallet Cap**: 60 GEAR per wallet per 24-hour UTC window.
+   - **Empty Escrow**: When escrow contract runs out of GEAR, animation still runs, but contract calls revert (`BytePocketsEmpty`).
 
 ---
 
