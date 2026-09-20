@@ -23,7 +23,7 @@ Live app file: `index.html` (runnable in any browser with zero backend requireme
 
 CAPs Garage connects three core utility tokens on Base without inflating supply or printing new tokens:
 - **$DRB (Oil / Fuel)**: Community-funded reward pool dropped into the community vault.
-- **$BYTE (The Dog)**: Holding dust $BYTE (`BYTE.balanceOf > 0`) unlocks 1 $GEAR per wallet per 60s until the escrow is empty.
+- **$BYTE (The Dog)**: Holding dust $BYTE (`BYTE.balanceOf > 0`) lets the player claim 1 $GEAR per 60s from BYTE until the escrow is empty.
 - **$GEAR (Tools & Access Keys)**: Required to repair/drive the red SUV, unlock the 500-garage Junkyard labyrinth (100 GEAR), and scavenge abandoned airdrop rewards (1,000 GEAR balance read).
 
 ---
@@ -40,11 +40,11 @@ CAPs Garage connects three core utility tokens on Base without inflating supply 
    - Holds community-deposited $DRB fuel.
    - Public function `fillOil()` with zero input arguments.
    - Dispenses fixed `packetSize` (admin-settable, e.g. 10 DRB) per `cooldownSeconds` (10s global tank cooldown).
-   - **Split Distribution**: Packet size minus caller bounty (`packetSize - callerBounty`, 9 DRB out of 10) routes to Drop Vault; fixed `callerBounty` (1 DRB) directly to `msg.sender`.
+   - **Split Distribution**: Packet size minus caller bounty (`netAmount = packetSize - callerBounty`, 9 DRB out of 10) routes to Drop Vault; fixed `callerBounty` (1 DRB) directly to `msg.sender`.
    - **No per-wallet cooldown**: Anyone (player or keeper bot) can trigger the tap whenever global cooldown resets. Keepers may call the same function with no cans.
 
 3. **Drop Vault (Pull-Claim & Scavenger Arena)**
-   - Funding restricted to calls from Oil Escrow via `fundFromEscrow(packetSize - callerBounty)`.
+   - Funding restricted to calls from Oil Escrow via `fundFromEscrow(uint256 netAmount)`. The vault receives `netAmount = packetSize - callerBounty` (9 DRB out of 10) while `callerBounty` (1 DRB) transfers directly to `msg.sender`. The 1 DRB caller bounty never enters the Drop Vault split.
    - Takes real-time snapshot of active collections from Gate Registry.
    - **Days 0–7**: 100% claimed by registered NFT token holders.
    - **Days 7–14 (Scavenger Window)**: Any player holding &ge; 1,000 GEAR can claim **unclaimed** allocations (90% payout to scavenger, 10% to cold immutable treasury). Holders who claimed on time are 100% safe.
