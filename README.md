@@ -4,6 +4,10 @@ Interactive architecture dossier, game economy flywheel, smart contract specific
 
 Live app file: `index.html` (runnable in any browser with zero backend requirements).
 
+**Live:** [https://drag-green.vercel.app/](https://drag-green.vercel.app/) · Repo: [CAPSTILLER/drag](https://github.com/CAPSTILLER/drag)
+
+UI polish (layout, typography, spacing, sticky mode deck, Gear home footer) does **not** change the Canonical Lock / beta-lock facts, contract mechanics, or token rules below.
+
 ---
 
 ## 🔒 Beta Lock
