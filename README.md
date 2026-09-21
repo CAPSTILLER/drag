@@ -74,3 +74,17 @@ CAPs Garage connects three core utility tokens on Base without inflating supply 
 ## License & Attribution
 
 Built for the **CAPSTILLER** community on Base.
+
+
+---
+
+## Street Arcade BETA
+
+Playable static top-down street arcade lives in [`game/`](./game/).
+
+- Local: `npx --yes serve .` then open `/game/`
+- Docs: [`game/GAME.md`](./game/GAME.md)
+- Mock chain stubs: `game/js/chain/mockProvider.js` + `liveProvider.js` (Bankr wire later)
+- Junkyard maze is **deferred** — locked gate only
+- Vercel: point Root Directory at `game/` for arcade-only, or keep root for dossier + `/game/`
+

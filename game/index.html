@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CAPs Garage — Street Arcade BETA</title>
+  <meta name="description" content="CAPs Garage street arcade beta. Cans are HUD. Public fillOil. BYTE fetch. Junkyard deferred." />
+  <meta name="theme-color" content="#0b0e14" />
+  <link rel="stylesheet" href="./css/game.css" />
+</head>
+<body>
+  <header class="game-header">
+    <div class="brand">
+      <h1>CAPs Garage</h1>
+      <span class="badge beta">Street Arcade BETA</span>
+      <span class="badge">Base 8453 · Mock</span>
+    </div>
+    <div class="header-actions">
+      <a href="../index.html" title="Master blueprint dossier">Blueprint</a>
+      <a href="./GAME.md" title="How to play">How to play</a>
+      <span class="wallet-chip" id="walletChip">No wallet</span>
+      <button type="button" class="primary" id="btnConnect">Connect Mock Wallet</button>
+    </div>
+  </header>
+
+  <div class="stage-wrap">
+    <canvas id="game" width="1280" height="720" aria-label="CAPs Garage street arcade"></canvas>
+
+    <div class="hud-layer" aria-live="polite">
+      <div class="hud-card oil">
+        <div class="label">Oil Cans</div>
+        <div class="big" id="hudCans">0/10</div>
+        <div class="hud-row">
+          <span class="g">GEAR <span id="hudGear">0</span></span>
+          <span class="b">BYTE <span id="hudByte">0</span></span>
+          <span class="d">DRB <span id="hudDrb">0</span></span>
+        </div>
+      </div>
+      <div class="hud-card tank">
+        <div class="label">Tank Status</div>
+        <div class="bars">
+          <div class="bar fuel" title="Deposited cans (HUD)"><span id="barFuel"></span></div>
+          <div class="bar cool" title="Global fillOil cooldown"><span id="barCool"></span></div>
+          <div class="bar byte" title="BYTE claim cooldown"><span id="barByte"></span></div>
+        </div>
+        <div class="tank-meta" id="tankMeta">—</div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+
+  <div class="action-bar">
+    <button type="button" id="btnDeposit" disabled>Deposit Cans</button>
+    <button type="button" id="btnPump" disabled>Pump fillOil</button>
+    <button type="button" class="byte-btn" id="btnByte" disabled>BYTE Fetch</button>
+    <button type="button" id="btnRepair" disabled>Repair SUV</button>
+    <button type="button" class="drive-btn" id="btnDrive" disabled>Drive</button>
+    <span class="hint">WASD / arrows move · E deposit/pump · F BYTE · R repair/drive · Gate locked</span>
+  </div>
+
+  <footer class="game-footer">
+    <div>Cans = HUD only (cap 10) · fillOil public · Junkyard coming in update · Mock wallet</div>
+    <a
+      class="gear-home-cutout"
+      href="https://landonthis.gearup.wtf"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Gear home — landonthis"
+    >
+      <img src="./assets/gear-logo.png" alt="" height="40" width="152" />
+    </a>
+  </footer>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
