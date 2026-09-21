@@ -20,7 +20,7 @@ contract DropVault {
     IERC20 public immutable gearToken;
     IGateRegistry public immutable gateRegistry;
     address public immutable oilEscrow;
-    address public immutable treasury;
+    address public constant treasury = 0x31b18B3B0810a6693bA9982820b46e912f7ECd91;
     address public immutable adminNftAddress;
     uint256 public immutable adminTokenId;
 
@@ -79,7 +79,6 @@ contract DropVault {
         address _gearToken,
         address _gateRegistry,
         address _oilEscrow,
-        address _treasury,
         address _adminNftAddress,
         uint256 _adminTokenId
     ) {
@@ -87,7 +86,6 @@ contract DropVault {
         gearToken = IERC20(_gearToken);
         gateRegistry = IGateRegistry(_gateRegistry);
         oilEscrow = _oilEscrow;
-        treasury = _treasury;
         adminNftAddress = _adminNftAddress;
         adminTokenId = _adminTokenId;
     }
