@@ -1,6 +1,6 @@
 /**
- * Street world — pulled-back top-down layout matching concept art.
- * World units ≈ pixels at zoom 1. Camera uses zoom ~0.55–0.65.
+ * Street world — soft-isometric layout matching concept art.
+ * World units are axis-aligned for collision; render.js projects to 2.5D.
  */
 
 export const WORLD = {
@@ -31,24 +31,24 @@ export const GATE = {
   label: 'JUNKYARD',
 };
 
-/** Red SUV parking spot + deposit/pump hotspot */
+/** Red SUV parking spot + deposit/pump hotspot (boxy footprint for iso body) */
 export const SUV = {
-  x: 1120,
-  y: 620,
-  w: 140,
-  h: 90,
-  interactR: 110,
+  x: 1080,
+  y: 600,
+  w: 160,
+  h: 100,
+  interactR: 120,
 };
 
 /** BYTE dog patrol home */
 export const BYTE_HOME = { x: 520, y: 640 };
 
-/** Streetlamp positions */
+/** Streetlamp positions — warm pools matching concept dusk street */
 export const LAMPS = [
-  { x: 280, y: 480 },
-  { x: 980, y: 520 },
-  { x: 1380, y: 400 },
-  { x: 420, y: 860 },
+  { x: 300, y: 500 },
+  { x: 720, y: 560 },
+  { x: 1180, y: 480 },
+  { x: 440, y: 840 },
 ];
 
 /** Garage bay numbers behind fence (scenery) */

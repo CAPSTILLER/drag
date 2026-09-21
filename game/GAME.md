@@ -1,8 +1,10 @@
 # CAPs Garage — Street Arcade BETA
 
-Pulled-back top-down street arcade for **CAPs Garage** on Base. This folder is a static playable build; the repo root `index.html` remains the architecture **blueprint dossier**.
+Soft isometric / 2.5D street arcade for **CAPs Garage** on Base. Canvas projects the street with a slight angled pull-back (not pure top-down, not a full 3D engine). This folder is a static playable build; the repo root `index.html` remains the architecture **blueprint dossier**.
 
 Concept north star: `assets/concept-caps-garage.jpg` (also at repo root).
+
+**Live chain status:** Mock wallet only. Bankr live Base (8453) wiring lives in `js/chain/liveProvider.js` stubs — **not** flipped on `main` (`USE_LIVE = false`). Sepolia / mainnet claim flows are **not** wired yet.
 
 ---
 

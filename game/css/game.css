@@ -20,7 +20,9 @@
 
 html, body {
   height: 100%;
-  background: radial-gradient(ellipse at 50% 20%, #1a1530 0%, var(--bg) 55%);
+  background:
+    radial-gradient(ellipse at 50% 0%, #3a1a3a 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 30%, #1a1530 0%, var(--bg) 60%);
   color: var(--text);
   font-family: var(--font);
   overflow: hidden;
@@ -156,9 +158,12 @@ body {
   max-height: calc(100vh - 168px);
   display: block;
   border-radius: 12px;
-  border: 1px solid rgba(255, 200, 80, 0.22);
-  background: #0a0c12;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 0 80px rgba(80, 40, 120, 0.08);
+  border: 1px solid rgba(255, 180, 60, 0.28);
+  background: #080b12;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 0 60px rgba(120, 40, 80, 0.12),
+    inset 0 0 100px rgba(60, 20, 80, 0.12);
   cursor: crosshair;
   image-rendering: auto;
 }
@@ -175,13 +180,15 @@ body {
 }
 
 .hud-card {
-  background: var(--panel);
+  background: linear-gradient(160deg, rgba(28, 32, 42, 0.92), rgba(10, 12, 18, 0.9));
   border: 2px solid var(--panel-border);
   border-radius: 10px;
   padding: 10px 14px;
   min-width: 148px;
   backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 220, 140, 0.08);
 }
 
 .hud-card.oil {
@@ -203,6 +210,8 @@ body {
   font-weight: 800;
   color: var(--oil);
   line-height: 1.1;
+  text-shadow: 0 0 12px rgba(245, 197, 66, 0.35);
+  letter-spacing: 0.04em;
 }
 
 .hud-row {
