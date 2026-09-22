@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>CAPs Garage — Street Arcade BETA (500-Bay Yard)</title>
-  <meta name="description" content="CAPs Garage street arcade beta: 5 rows of 100 garages, dirt roads separating rows, blue SUV bay, oil tank truck deposit pad, and 3-second global cooldown gear vault." />
+  <meta name="description" content="CAPs Garage street arcade beta: street vs parking-lot zoning, stronger 2.5D yard, blue SUV bay, teal-green road blockers, oil tank pad, and 3s gear vault cooldown." />
   <meta name="theme-color" content="#0b0e14" />
   <style>
     :root {
@@ -21,6 +21,7 @@
       --accent-byte: #10b981;
       --accent-suv-red: #ef4444;
       --accent-suv-blue: #3b82f6;
+      --accent-suv-teal: #0d9488;
       --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
@@ -413,7 +414,7 @@
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
 
-    <div id="toast">Welcome to the 500-Bay Garage Yard! Drive down the dirt roads to collect cans.</div>
+    <div id="toast">Street → Gate → Parking Lot. Teal SUVs block the red truck — walk the edge to squeeze past.</div>
 
     <div id="action-prompt" onclick="triggerCurrentAction()">
       <span class="key-pill" id="action-key">E</span>
@@ -627,6 +628,66 @@
       heading: Math.PI / 2 // facing DOWN toward the door
     };
 
+    // --- Gate: STREET (west) vs PARKING LOT (yard) ---
+    const gateX = yardStartX - 18;
+    const gate = {
+      x: gateX,
+      y: yardStartY - 20,
+      h: garageRows * (garageH + dirtRoadH) + 40,
+      postW: 14
+    };
+
+    // --- Teal-green road-blocker SUVs on dirt corridors ---
+    // Placed mid-road between bay-pair columns. AABB is wide enough to stop the red truck
+    // but leaves edge gaps so the walking character can squeeze past.
+    function bayById(id) {
+      return garages.find(g => g.id === id);
+    }
+    function roadYBetween(a, b) {
+      const ra = Math.min(a.row, b.row);
+      return rows[ra].roadY + dirtRoadH / 2;
+    }
+    function midXBetween(a, b) {
+      return (a.x + a.w / 2 + b.x + b.w / 2) / 2;
+    }
+
+    const greenPairIds = [
+      [1, 101], [110, 210], [230, 330], [344, 444], [262, 362],
+      [63, 163], [84, 184], [395, 495], [100, 200], [400, 300]
+    ];
+
+    const greenSUVs = [];
+    function pushGreen(x, y, tag) {
+      greenSUVs.push({
+        x, y,
+        w: 40,       // N-S extent (road is 72) — truck blocked; ~south edge walk lane
+        length: 52,  // E-W
+        heading: 0,
+        tag: tag || 'blocker'
+      });
+    }
+
+    greenPairIds.forEach(([idA, idB]) => {
+      const a = bayById(idA);
+      const b = bayById(idB);
+      if (!a || !b) return;
+      pushGreen(midXBetween(a, b), roadYBetween(a, b) - 6, idA + '-' + idB);
+    });
+
+    // Extra density on dirt road between bays 1↔101 (Road 0) — choke the corridor
+    const road0CenterY = rows[0].roadY + dirtRoadH / 2;
+    const occupiedCols = new Set(greenSUVs
+      .filter(s => Math.abs(s.y - (road0CenterY - 6)) < 10)
+      .map(s => Math.round((s.x - yardStartX) / garageW)));
+    const chokeCols = [4, 9, 14, 19, 24, 29, 34, 39, 44, 49, 54, 58, 68, 73, 78, 88, 93];
+    chokeCols.forEach(col => {
+      if (occupiedCols.has(col)) return;
+      const x = yardStartX + col * garageW + (garageW - 4) / 2;
+      // slight stagger so walk lanes zigzag
+      const yOff = (col % 2 === 0) ? -2 : 2;
+      pushGreen(x, road0CenterY - 6 + yOff, 'choke-r0-c' + col);
+    });
+
     // --- Oil Tank & Deposit Pad at the end of the garage yard ---
     const oilTank = {
       x: yardEndX + 220,
@@ -718,8 +779,11 @@
     // --- Actions ---
     function triggerCurrentAction() {
       if (state.currentAction === 'inspect_blue_suv') {
-        showToast("🚙 Blue SUV tucked in Bay #42: Nose peeks out ~5px into door threshold, zero road overlap!");
+        showToast("Not broke, just unused...");
         playTone(520, 'sine', 0.15);
+      } else if (state.currentAction === 'inspect_green_suv') {
+        showToast("broke down, dont even try...");
+        playTone(180, 'sawtooth', 0.18);
       } else if (state.currentAction === 'claim_gear_vault') {
         testClaimGearVault();
       } else if (state.currentAction === 'toggle_truck') {
@@ -826,6 +890,24 @@
           }
         }
 
+        // Green road blockers: truck AABB blocked; walker AABB narrow enough to squeeze past edges
+        if (!blocked) {
+          const halfW = state.inTruck ? player.w * 0.42 : 5;
+          const halfH = state.inTruck ? player.h * 0.42 : 5;
+          for (let gi = 0; gi < greenSUVs.length; gi++) {
+            const s = greenSUVs[gi];
+            const left = s.x - s.length / 2;
+            const right = s.x + s.length / 2;
+            const top = s.y - s.w / 2;
+            const bottom = s.y + s.w / 2;
+            if (nextX + halfW > left && nextX - halfW < right &&
+                nextY + halfH > top && nextY - halfH < bottom) {
+              blocked = true;
+              break;
+            }
+          }
+        }
+
         if (!blocked) {
           player.x = Math.max(50, Math.min(world.width - 50, nextX));
           player.y = Math.max(50, Math.min(world.height - 50, nextY));
@@ -902,6 +984,16 @@
 
       // Proximity
       const distToBlue = Math.hypot(player.x - blueSUV.x, player.y - blueSUV.y);
+      let nearestGreen = null;
+      let nearestGreenDist = Infinity;
+      for (let gi = 0; gi < greenSUVs.length; gi++) {
+        const s = greenSUVs[gi];
+        const d = Math.hypot(player.x - s.x, player.y - s.y);
+        if (d < nearestGreenDist) {
+          nearestGreenDist = d;
+          nearestGreen = s;
+        }
+      }
       const promptEl = document.getElementById('action-prompt');
       const actionTextEl = document.getElementById('action-text');
 
@@ -909,6 +1001,10 @@
         state.currentAction = 'inspect_blue_suv';
         promptEl.style.display = 'flex';
         actionTextEl.innerText = 'Inspect Blue SUV in Bay #42 (E)';
+      } else if (nearestGreen && nearestGreenDist < 58) {
+        state.currentAction = 'inspect_green_suv';
+        promptEl.style.display = 'flex';
+        actionTextEl.innerText = 'Inspect broken teal SUV (E)';
       } else if (onPad && state.cans === 0) {
         state.currentAction = null;
         promptEl.style.display = 'flex';
@@ -928,41 +1024,114 @@
       ctx.save();
       ctx.translate(width / 2 - player.x, height / 2 - player.y);
 
+      const yardH = garageRows * (garageH + dirtRoadH);
+      const viewLeft = player.x - width / 2 - 120;
+      const viewRight = player.x + width / 2 + 120;
+
       // Terrain Base
-      ctx.fillStyle = '#17120e';
+      ctx.fillStyle = '#12151a';
       ctx.fillRect(0, 0, world.width, world.height);
 
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(0, yardStartY - 40, yardStartX, garageRows * (garageH + dirtRoadH) + 80);
+      // === STREET zone (west of gate, outside yard) ===
+      const streetTop = yardStartY - 50;
+      const streetH = yardH + 100;
+      ctx.fillStyle = '#2a3038';
+      ctx.fillRect(0, streetTop, gate.x, streetH);
 
-      ctx.fillStyle = '#221e1a';
-      ctx.fillRect(yardEndX, yardStartY - 40, world.width - yardEndX, garageRows * (garageH + dirtRoadH) + 80);
+      // Street lane dashed yellow center
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([18, 14]);
+      ctx.beginPath();
+      ctx.moveTo(40, streetTop + streetH / 2);
+      ctx.lineTo(gate.x - 10, streetTop + streetH / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
 
-      // 5 Dirt Roads between the rows
+      // Street curbs
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(0, streetTop, gate.x, 8);
+      ctx.fillRect(0, streetTop + streetH - 8, gate.x, 8);
+      ctx.fillStyle = '#64748b';
+      for (let cx = 20; cx < gate.x - 10; cx += 36) {
+        ctx.fillRect(cx, streetTop + 1, 18, 6);
+        ctx.fillRect(cx, streetTop + streetH - 7, 18, 6);
+      }
+
+      // STREET label
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.35)';
+      ctx.font = 'bold 28px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('STREET', gate.x / 2, streetTop + streetH / 2 - 18);
+
+      // === PARKING LOT zone (inside yard after gate) ===
+      ctx.fillStyle = '#323842';
+      ctx.fillRect(gate.x, streetTop, yardEndX - gate.x + 90, streetH);
+
+      // Parking stall markings (north & south apron)
+      ctx.strokeStyle = 'rgba(226, 232, 240, 0.55)';
+      ctx.lineWidth = 2;
+      for (let px = yardStartX; px < yardEndX; px += 28) {
+        ctx.beginPath();
+        ctx.moveTo(px, streetTop + 14);
+        ctx.lineTo(px, streetTop + 42);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px, streetTop + streetH - 42);
+        ctx.lineTo(px, streetTop + streetH - 14);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(226, 232, 240, 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(yardStartX, streetTop + 42);
+      ctx.lineTo(yardEndX, streetTop + 42);
+      ctx.moveTo(yardStartX, streetTop + streetH - 42);
+      ctx.lineTo(yardEndX, streetTop + streetH - 42);
+      ctx.stroke();
+
+      // PARKING LOT label near west apron inside
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('PARKING LOT', yardStartX + 40, streetTop + 34);
+
+      // East service apron (still parking lot)
+      ctx.fillStyle = '#2c323c';
+      ctx.fillRect(yardEndX, streetTop, world.width - yardEndX, streetH);
+
+      // Dirt service roads between garage rows (inside parking lot)
       for (let r = 0; r < garageRows; r++) {
         const road = rows[r];
 
         ctx.fillStyle = '#3a2e22';
-        ctx.fillRect(yardStartX - 80, road.roadY, (yardEndX - yardStartX) + 160, road.roadH);
+        ctx.fillRect(yardStartX - 10, road.roadY, (yardEndX - yardStartX) + 80, road.roadH);
+
+        // Soft road shadow edge
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(yardStartX - 10, road.roadY + road.roadH - 4, (yardEndX - yardStartX) + 80, 4);
 
         // Tire ruts
         ctx.strokeStyle = '#2b2118';
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(yardStartX - 80, road.roadY + 18);
-        ctx.lineTo(yardEndX + 80, road.roadY + 18);
-        ctx.moveTo(yardStartX - 80, road.roadY + road.roadH - 18);
-        ctx.lineTo(yardEndX + 80, road.roadY + road.roadH - 18);
+        ctx.moveTo(yardStartX - 10, road.roadY + 18);
+        ctx.lineTo(yardEndX + 70, road.roadY + 18);
+        ctx.moveTo(yardStartX - 10, road.roadY + road.roadH - 18);
+        ctx.lineTo(yardEndX + 70, road.roadY + road.roadH - 18);
         ctx.stroke();
 
         ctx.fillStyle = '#4b3c2c';
-        ctx.fillRect(yardStartX - 80, road.roadY, (yardEndX - yardStartX) + 160, 3);
-        ctx.fillRect(yardStartX - 80, road.roadY + road.roadH - 3, (yardEndX - yardStartX) + 160, 3);
+        ctx.fillRect(yardStartX - 10, road.roadY, (yardEndX - yardStartX) + 80, 3);
+        ctx.fillRect(yardStartX - 10, road.roadY + road.roadH - 3, (yardEndX - yardStartX) + 80, 3);
       }
 
+      // N/S connecting avenues inside lot
       ctx.fillStyle = '#3a2e22';
-      ctx.fillRect(yardStartX - 60, yardStartY, 60, garageRows * (garageH + dirtRoadH));
-      ctx.fillRect(yardEndX, yardStartY, 70, garageRows * (garageH + dirtRoadH));
+      ctx.fillRect(yardStartX - 14, yardStartY, 28, yardH);
+      ctx.fillRect(yardEndX - 8, yardStartY, 70, yardH);
+
+      // Gate (extruded 2.5D)
+      renderGate();
 
       // Dust trails
       player.trail.forEach(t => {
@@ -972,67 +1141,28 @@
         ctx.fill();
       });
 
-      // 500 Garages
-      const viewLeft = player.x - width / 2 - 100;
-      const viewRight = player.x + width / 2 + 100;
-
+      // 500 Garages — soft isometric extrusion
       garages.forEach(g => {
         if (g.x + g.w < viewLeft || g.x > viewRight) return;
-
-        ctx.fillStyle = '#1c2430';
-        ctx.fillRect(g.x, g.y, g.w, g.h);
-
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(g.x, g.y, g.w, g.h);
-
-        if (g.doorOpen) {
-          ctx.fillStyle = '#0f1722';
-          ctx.fillRect(g.x + 3, g.y + 12, g.w - 6, g.h - 12);
-          ctx.strokeStyle = '#38bdf8';
-          ctx.strokeRect(g.x + 2, g.y + 11, g.w - 4, g.h - 11);
-        } else {
-          ctx.fillStyle = '#273549';
-          ctx.fillRect(g.x + 4, g.y + 14, g.w - 8, g.h - 14);
-
-          ctx.strokeStyle = '#1e293b';
-          ctx.lineWidth = 1;
-          for (let s = g.y + 18; s < g.y + g.h; s += 6) {
-            ctx.beginPath();
-            ctx.moveTo(g.x + 4, s);
-            ctx.lineTo(g.x + g.w - 4, s);
-            ctx.stroke();
-          }
-        }
-
-        ctx.fillStyle = g.doorOpen ? '#38bdf8' : '#64748b';
-        ctx.font = 'bold 8px monospace';
-        ctx.fillText('#' + g.id, g.x + 5, g.y + 10);
+        renderGarage3D(g);
       });
 
       // Blue SUV inside Bay #42
       renderBlueSUV(blueSUV.x, blueSUV.y);
 
+      // Green / teal road blockers
+      greenSUVs.forEach(s => {
+        if (s.x + s.length < viewLeft || s.x - s.length > viewRight) return;
+        renderGreenSUV(s);
+      });
+
       // Oil Tank & Deposit Pad
       renderOilTankAndPad();
 
-      // Oil Cans
+      // Oil Cans (extruded)
       oilCans.forEach(can => {
         if (can.x < viewLeft || can.x > viewRight) return;
-        const bob = Math.sin(performance.now() * 0.005 + can.bobble) * 2;
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
-        ctx.beginPath();
-        ctx.arc(can.x, can.y + 3, 10, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(can.x - 6, can.y - 8 + bob, 12, 16);
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.arc(can.x, can.y - 8 + bob, 6, 0, Math.PI, true);
-        ctx.fill();
-        ctx.fillStyle = '#d97706';
-        ctx.fillRect(can.x - 2, can.y - 12 + bob, 4, 4);
+        renderOilCan3D(can);
       });
 
       // Particles
@@ -1054,12 +1184,175 @@
       renderRadar();
     }
 
+    function renderGate() {
+      const gx = gate.x;
+      const gy = gate.y;
+      const gh = gate.h;
+      const pw = gate.postW;
+      const depth = 10;
+
+      // Soft ground shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(gx - 6, gy + gh - 4, 40, 14);
+
+      // Left post extrusion
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.moveTo(gx + pw, gy);
+      ctx.lineTo(gx + pw + depth, gy - 8);
+      ctx.lineTo(gx + pw + depth, gy + gh - 8);
+      ctx.lineTo(gx + pw, gy + gh);
+      ctx.fill();
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(gx, gy, pw, gh);
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(gx + 2, gy + 4, pw - 4, 10);
+
+      // Right-side twin post further south of opening mid
+      const midY = rows[1].roadY + dirtRoadH / 2;
+      // Crossbar / arch over opening band near road 1
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(gx - 4, midY - 55, 28, 10);
+      // Top face
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(gx - 4, midY - 55);
+      ctx.lineTo(gx + 2, midY - 63);
+      ctx.lineTo(gx + 30, midY - 63);
+      ctx.lineTo(gx + 24, midY - 55);
+      ctx.fill();
+
+      // Barrier stripes
+      ctx.fillStyle = '#f59e0b';
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(gx + 2, midY - 48 + i * 22, 10, 10);
+      }
+      ctx.fillStyle = '#0f172a';
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(gx + 2, midY - 38 + i * 22, 10, 10);
+      }
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('GATE', gx + 10, midY - 68);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '9px monospace';
+      ctx.fillText('STREET ← | → LOT', gx + 10, midY - 56);
+    }
+
+    function renderGarage3D(g) {
+      const d = 8; // extrusion depth
+
+      // Ground soft shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(g.x + g.w / 2 + 4, g.y + g.h + 4, g.w / 2 + 4, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right height face
+      ctx.fillStyle = '#0b1018';
+      ctx.beginPath();
+      ctx.moveTo(g.x + g.w, g.y);
+      ctx.lineTo(g.x + g.w + d, g.y - d * 0.7);
+      ctx.lineTo(g.x + g.w + d, g.y + g.h - d * 0.7);
+      ctx.lineTo(g.x + g.w, g.y + g.h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Top height face
+      ctx.fillStyle = '#2a3548';
+      ctx.beginPath();
+      ctx.moveTo(g.x, g.y);
+      ctx.lineTo(g.x + d, g.y - d * 0.7);
+      ctx.lineTo(g.x + g.w + d, g.y - d * 0.7);
+      ctx.lineTo(g.x + g.w, g.y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Front face
+      ctx.fillStyle = '#1c2430';
+      ctx.fillRect(g.x, g.y, g.w, g.h);
+      ctx.strokeStyle = '#3b4a5f';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(g.x, g.y, g.w, g.h);
+
+      if (g.doorOpen) {
+        ctx.fillStyle = '#0a1018';
+        ctx.fillRect(g.x + 3, g.y + 12, g.w - 6, g.h - 12);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.strokeRect(g.x + 2, g.y + 11, g.w - 4, g.h - 11);
+      } else {
+        ctx.fillStyle = '#273549';
+        ctx.fillRect(g.x + 4, g.y + 14, g.w - 8, g.h - 14);
+        ctx.strokeStyle = '#1a2330';
+        ctx.lineWidth = 1;
+        for (let s = g.y + 18; s < g.y + g.h; s += 6) {
+          ctx.beginPath();
+          ctx.moveTo(g.x + 4, s);
+          ctx.lineTo(g.x + g.w - 4, s);
+          ctx.stroke();
+        }
+        // Door lip highlight
+        ctx.fillStyle = 'rgba(148,163,184,0.25)';
+        ctx.fillRect(g.x + 4, g.y + 14, g.w - 8, 3);
+      }
+
+      // Number plate with slight lift
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(g.x + 3, g.y + 2, 28, 11);
+      ctx.fillStyle = g.doorOpen ? '#38bdf8' : '#94a3b8';
+      ctx.font = 'bold 8px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('#' + g.id, g.x + 5, g.y + 10);
+    }
+
+    function renderOilCan3D(can) {
+      const bob = Math.sin(performance.now() * 0.005 + can.bobble) * 2;
+      const x = can.x;
+      const y = can.y + bob;
+
+      // Soft shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x + 2, can.y + 10, 9, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Side extrusion face
+      ctx.fillStyle = '#b45309';
+      ctx.fillRect(x - 4, y - 6, 12, 14);
+
+      // Front
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(x - 6, y - 8, 12, 16);
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(x, y - 8, 6, 0, Math.PI, true);
+      ctx.fill();
+      // Top rim face
+      ctx.fillStyle = '#fde68a';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 8, 6, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#d97706';
+      ctx.fillRect(x - 2, y - 12, 4, 4);
+    }
+
     function renderBlueSUV(cx, cy) {
       ctx.save();
       ctx.translate(cx, cy);
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(-blueSUV.w / 2 - 2, -blueSUV.length / 2 - 2, blueSUV.w + 4, blueSUV.length + 4);
+      // Soft drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(3, blueSUV.length / 2 - 4, blueSUV.w / 2 + 6, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Height / side face (extrusion)
+      ctx.fillStyle = '#1e3a8a';
+      ctx.beginPath();
+      ctx.roundRect(-blueSUV.w / 2 + 4, -blueSUV.length / 2 + 4, blueSUV.w, blueSUV.length, 6);
+      ctx.fill();
 
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(-blueSUV.w / 2 - 3, -blueSUV.length / 2 + 6, 4, 12);
@@ -1072,8 +1365,11 @@
       ctx.roundRect(-blueSUV.w / 2, -blueSUV.length / 2, blueSUV.w, blueSUV.length, 6);
       ctx.fill();
 
-      ctx.fillStyle = '#1e3a8a';
+      // Roof inset (darker = height)
+      ctx.fillStyle = '#1d4ed8';
       ctx.fillRect(-blueSUV.w / 2 + 4, -blueSUV.length / 2 + 10, blueSUV.w - 8, blueSUV.length - 20);
+      ctx.fillStyle = '#172554';
+      ctx.fillRect(-blueSUV.w / 2 + 6, -blueSUV.length / 2 + 14, blueSUV.w - 12, blueSUV.length - 30);
 
       ctx.fillStyle = '#93c5fd';
       ctx.fillRect(-blueSUV.w / 2 + 6, blueSUV.length / 2 - 18, blueSUV.w - 12, 6);
@@ -1089,7 +1385,61 @@
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 9px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('BLUE SUV (BAY #42)', 0, -blueSUV.length / 2 - 6);
+      ctx.fillText('BLUE SUV (BAY #42)', 0, -blueSUV.length / 2 - 8);
+
+      ctx.restore();
+    }
+
+    function renderGreenSUV(s) {
+      ctx.save();
+      ctx.translate(s.x, s.y);
+
+      // Soft shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(4, 6, s.length / 2 + 4, s.w / 2 + 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Extruded side face (teal-dark)
+      ctx.fillStyle = '#115e59';
+      ctx.beginPath();
+      ctx.roundRect(-s.length / 2 + 5, -s.w / 2 + 4, s.length, s.w, 5);
+      ctx.fill();
+
+      // Wheels
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-s.length / 2 + 6, -s.w / 2 - 3, 12, 4);
+      ctx.fillRect(s.length / 2 - 18, -s.w / 2 - 3, 12, 4);
+      ctx.fillRect(-s.length / 2 + 6, s.w / 2 - 1, 12, 4);
+      ctx.fillRect(s.length / 2 - 18, s.w / 2 - 1, 12, 4);
+
+      // Body — blue-green / teal-green
+      ctx.fillStyle = '#0d9488';
+      ctx.beginPath();
+      ctx.roundRect(-s.length / 2, -s.w / 2, s.length, s.w, 5);
+      ctx.fill();
+
+      // Roof height
+      ctx.fillStyle = '#0f766e';
+      ctx.fillRect(-s.length / 2 + 6, -s.w / 2 + 5, s.length - 12, s.w - 10);
+      ctx.fillStyle = '#134e4a';
+      ctx.fillRect(-s.length / 2 + 10, -s.w / 2 + 8, s.length - 20, s.w - 16);
+
+      // Windows
+      ctx.fillStyle = '#99f6e4';
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(-s.length / 2 + 10, -s.w / 2 + 7, 10, s.w - 14);
+      ctx.fillRect(s.length / 2 - 20, -s.w / 2 + 7, 10, s.w - 14);
+      ctx.globalAlpha = 1;
+
+      // Hazard / broke vibe
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(-4, -s.w / 2 - 2, 8, 3);
+
+      ctx.fillStyle = '#5eead4';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('BROKE DOWN', 0, -s.w / 2 - 6);
 
       ctx.restore();
     }
@@ -1169,8 +1519,17 @@
       ctx.translate(x, y);
       ctx.rotate(angle);
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-      ctx.fillRect(-player.w / 2 - 3, -player.h / 2 - 3, player.w + 6, player.h + 6);
+      // Soft drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.beginPath();
+      ctx.ellipse(4, 5, player.w / 2 + 4, player.h / 2 + 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Extruded underside / height face
+      ctx.fillStyle = '#7f1d1d';
+      ctx.beginPath();
+      ctx.roundRect(-player.w / 2 + 4, -player.h / 2 + 4, player.w, player.h, 6);
+      ctx.fill();
 
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(-player.w / 2 + 6, -player.h / 2 - 4, 14, 6);
@@ -1185,6 +1544,8 @@
 
       ctx.fillStyle = '#991b1b';
       ctx.fillRect(0, -player.h / 2 + 3, player.w / 2 - 4, player.h - 6);
+      ctx.fillStyle = '#450a0a';
+      ctx.fillRect(2, -player.h / 2 + 6, player.w / 2 - 8, player.h - 12);
 
       ctx.fillStyle = '#38bdf8';
       ctx.fillRect(player.w / 4, -player.h / 2 + 5, 6, player.h - 10);
@@ -1214,9 +1575,15 @@
       ctx.translate(x, y);
       ctx.rotate(angle);
 
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.beginPath();
-      ctx.ellipse(0, 3, 12, 7, 0, 0, Math.PI * 2);
+      ctx.ellipse(2, 5, 13, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body height face
+      ctx.fillStyle = '#1e3a8a';
+      ctx.beginPath();
+      ctx.arc(2, 2, 11, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#2563eb';
@@ -1240,13 +1607,31 @@
       const scaleX = rw / world.width;
       const scaleY = rh / world.height;
 
-      radarCtx.fillStyle = '#1e293b';
-      radarCtx.fillRect(yardStartX * scaleX, yardStartY * scaleY, (yardEndX - yardStartX) * scaleX, (garageRows * (garageH + dirtRoadH)) * scaleY);
+      // Street
+      radarCtx.fillStyle = '#334155';
+      radarCtx.fillRect(0, (yardStartY - 40) * scaleY, gate.x * scaleX, (garageRows * (garageH + dirtRoadH) + 80) * scaleY);
+
+      // Parking lot
+      radarCtx.fillStyle = '#475569';
+      radarCtx.fillRect(gate.x * scaleX, yardStartY * scaleY, (yardEndX - gate.x) * scaleX, (garageRows * (garageH + dirtRoadH)) * scaleY);
 
       radarCtx.fillStyle = '#785638';
       for (let r = 0; r < garageRows; r++) {
         radarCtx.fillRect(yardStartX * scaleX, rows[r].roadY * scaleY, (yardEndX - yardStartX) * scaleX, dirtRoadH * scaleY);
       }
+
+      // Gate line
+      radarCtx.strokeStyle = '#f59e0b';
+      radarCtx.lineWidth = 1;
+      radarCtx.beginPath();
+      radarCtx.moveTo(gate.x * scaleX, yardStartY * scaleY);
+      radarCtx.lineTo(gate.x * scaleX, (yardStartY + garageRows * (garageH + dirtRoadH)) * scaleY);
+      radarCtx.stroke();
+
+      radarCtx.fillStyle = '#14b8a6';
+      greenSUVs.forEach(s => {
+        radarCtx.fillRect(s.x * scaleX - 1.5, s.y * scaleY - 1, 3, 2);
+      });
 
       radarCtx.fillStyle = '#38bdf8';
       radarCtx.beginPath();

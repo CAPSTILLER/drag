@@ -1,37 +1,57 @@
 # CAPs Garage — Street Arcade BETA (500-Bay Yard)
 
-Playable retro top-down arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, dirt roads, parked blue SUV bay, oil tank deposit pad, and the 3-second global cooldown gear vault.
+Playable retro soft-isometric arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, street → gate → parking-lot zoning, dirt service roads, parked blue SUV bay, teal-green road blockers, oil tank deposit pad, and the 3-second global cooldown gear vault.
 
 Live repo: [CAPSTILLER/drag](https://github.com/CAPSTILLER/drag) · Live app: [caps-garage](https://bankr.bot/apps/caps-garage)
+
+Primary playable: **`game/index.html`** (single-file canvas arcade).
 
 ---
 
 ## What's in the Beta
 
-### 1. 500-Bay Garage Yard (5 Rows x 100 Garages)
-- 5 horizontal rows of 100 garages each (bays #1 to #500).
-- Corrugated metal roll-up doors with live bay number plates.
-- Viewport culling keeps performance butter-smooth across mobile and desktop.
+### 1. Street vs Parking Lot Zoning
+- **STREET** — asphalt with yellow dashed center line and curbs **west of the gate** (outside the yard).
+- **PARKING LOT** — asphalt with white stall markings **inside the yard after the gate**.
+- Dirt service roads still separate garage rows inside the lot (tire ruts, dust).
+- Soft-isometric gate marks the STREET ↔ LOT threshold.
 
-### 2. Dedicated Dirt Roads
-- 5 dirt roads separating the rows, calibrated at 72px wide to be comfortably wider than the 44px SUV.
-- Open driving lanes with tire ruts, dust trails, and zero road collision obstacles.
+### 2. Stronger 2.5D Look
+- Extruded height faces + soft drop shadows on garages, SUVs, oil cans, gate posts, and the red truck.
+- Canvas soft-isometric / extruded boxes — not a Three.js rewrite.
+
+### 3. 500-Bay Garage Yard (5 Rows × 100 Garages)
+- Rows: `#1–100`, `#101–200`, `#201–300`, `#301–400`, `#401–500`.
+- Corrugated roll-up doors with bay number plates; Bay **#42** door stays open for the blue SUV.
+- Viewport culling for mobile/desktop performance.
+- Doors are **not** auto-opened for red-SUV passage yet (playtest which doors should open later).
+
+### 4. Dedicated Dirt Roads
+- 5 dirt roads separating the rows (72px wide vs 44px SUV comfort clearance).
 - Connecting avenues at the west gate entrance and eastern terminus.
 
-### 3. Parked Blue SUV in Bay #42
-- Parked securely inside Garage Bay #42 in Row 1.
-- Front bumper peeks out ~5px into the doorway threshold lip.
-- Zero collision overlap with the dirt road driving lane — the red truck can cruise past without hitting it.
+### 5. Parked Blue SUV in Bay #42
+- Nose peeks out ~5px into the doorway threshold; zero dirt-road overlap for free cruise past the bay.
+- Inspect (E): exactly **`Not broke, just unused...`**
 
-### 4. Community Oil Tank & Truck Deposit Pad
-- Giant industrial cylindrical storage tank located at the eastern end of the garage yard.
-- High-visibility concrete deposit pad directly in front of the tank with animated hazard chevron borders.
-- **Automatic Deposit:** Driving the truck onto the pad unloads collected oil cans, pumps them into the community oil tank, awards DRB caller bounty, expands the Drop Vault pool, and fires hydraulic fanfare audio and particles.
+### 6. Teal-Green Road Blockers (Broke-Down SUVs)
+- Color: blue-green / teal-green (distinct from blue bay SUV and red player truck).
+- Inspect (E): exactly **`broke down, dont even try...`**
+- **Collision:** red truck AABB is blocked; walking character uses a narrower AABB and can squeeze along the road edge.
+- Placed mid-corridor on the dirt road between these garage pairs:
+  - `1 ↔ 101` (Road 0) — **extra dense choke** along this stretch so the red truck cannot freely cruise between bay 1 and 101
+  - `110 ↔ 210`, `230 ↔ 330`, `344 ↔ 444`, `262 ↔ 362`
+  - `63 ↔ 163`, `84 ↔ 184`, `395 ↔ 495`, `100 ↔ 200`, `400 ↔ 300`
 
-### 5. 3-Second Global Cooldown on Gear Vault
+### 7. Community Oil Tank & Truck Deposit Pad
+- Giant industrial tank at the eastern end of the yard.
+- Concrete deposit pad with hazard chevrons.
+- **Automatic Deposit:** drive the truck onto the pad to unload cans, pump into the community tank, award DRB, expand Drop Vault pool.
+
+### 8. 3-Second Global Cooldown on Gear Vault
 - Smart contract: `contracts/GearVault.sol` (`GLOBAL_COOLDOWN = 3 seconds`).
 - Escrow check: `contracts/ByteFetchEscrow.sol` enforced at 3.0s.
-- Game HUD & test rig: Live telemetry and cooldown countdown for tool claims.
+- Game HUD & test rig: live telemetry and cooldown countdown for tool claims.
 
 ---
 
@@ -42,9 +62,18 @@ Live repo: [CAPSTILLER/drag](https://github.com/CAPSTILLER/drag) · Live app: [c
 | **WASD / Arrow keys** | Steer truck / walk driver |
 | **Drive over yellow cans** | Pick up oil cans (inventory cap 10) |
 | **Drive onto Oil Tank Pad** | Auto-deposit cans into community tank & earn DRB |
-| **E / Space** | Proximity action (inspect Blue SUV, toggle truck, claim tools) |
+| **E / Space** | Proximity action (inspect Blue / teal SUVs, toggle truck, claim tools) |
 | **Test Rig Buttons** | Instant can packing, 3s gear vault claim, pad warp, blue SUV warp |
 | **Mobile Touch** | On-screen D-Pad and Action button |
+
+---
+
+## Playtest Tips (Chokepoints)
+
+1. Start on the **STREET**, drive east through the **GATE** into the **PARKING LOT**.
+2. Hop out (toggle truck) and **walk the edge** past a teal SUV — then remount and confirm the **red truck cannot** push through.
+3. Heaviest choke: dirt road between rows 0–1 from **bay 1 → bay 101** (and the whole Road 0 stretch).
+4. Other pair blockers: warp near Bay #42 then cruise east/west on Roads 0–3 to hit `63/163`, `84/184`, `110/210`, `230/330`, etc.
 
 ---
 
