@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>CAPs Garage — Street Arcade BETA (500-Bay Yard)</title>
-  <meta name="description" content="CAPs Garage street arcade beta: street vs parking-lot zoning, stronger 2.5D yard, blue SUV bay, teal-green road blockers, oil tank pad, and 3s gear vault cooldown." />
+  <meta name="description" content="CAPs Garage street arcade beta: street vs parking-lot zoning, teal road blockers (drive-block / walk-squeeze), fenced oil tank yard, blue SUV bay #42, and 3s gear vault cooldown." />
   <meta name="theme-color" content="#0b0e14" />
   <style>
     :root {
@@ -414,7 +414,7 @@
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
 
-    <div id="toast">Street → Gate → Parking Lot. Teal SUVs block the red truck — walk the edge to squeeze past.</div>
+    <div id="toast">Street → Gate → Lot. Teal SUVs hard-block the red truck (walk the south edge). Oil tank yard is fenced — no lot entry.</div>
 
     <div id="action-prompt" onclick="triggerCurrentAction()">
       <span class="key-pill" id="action-key">E</span>
@@ -637,9 +637,9 @@
       postW: 14
     };
 
-    // --- Teal-green road-blocker SUVs on dirt corridors ---
-    // Placed mid-road between bay-pair columns. AABB is wide enough to stop the red truck
-    // but leaves edge gaps so the walking character can squeeze past.
+    // --- Teal-green road-blocker SUVs on dirt corridors (Cap allowlist ONLY) ---
+    // Hard-block the red truck; leave a thin south-edge walk lane for on-foot squeeze-past.
+    // No Road-0 choke wall / no extras beyond the listed bay-pair corridors.
     function bayById(id) {
       return garages.find(g => g.id === id);
     }
@@ -651,6 +651,7 @@
       return (a.x + a.w / 2 + b.x + b.w / 2) / 2;
     }
 
+    // Full Cap allowlist — one pair of blockers per corridor (single SUV mid-road).
     const greenPairIds = [
       [1, 101], [110, 210], [230, 330], [344, 444], [262, 362],
       [63, 163], [84, 184], [395, 495], [100, 200], [400, 300]
@@ -660,10 +661,14 @@
     function pushGreen(x, y, tag) {
       greenSUVs.push({
         x, y,
-        w: 40,       // N-S extent (road is 72) — truck blocked; ~south edge walk lane
-        length: 52,  // E-W
+        // N-S nearly fills the 72px dirt road; ~12px south walk lane remains for foot traffic.
+        // Sized vs truck body (player.h≈34) so driving cannot slip the edge.
+        w: 58,
+        length: 56,  // E-W
         heading: 0,
-        tag: tag || 'blocker'
+        tag: tag || 'blocker',
+        blockVehicle: true,
+        blockWalk: false // walk uses narrow AABB + south-edge gap instead
       });
     }
 
@@ -671,21 +676,8 @@
       const a = bayById(idA);
       const b = bayById(idB);
       if (!a || !b) return;
+      // Bias slightly north so the south edge of the road is the walk squeeze lane
       pushGreen(midXBetween(a, b), roadYBetween(a, b) - 6, idA + '-' + idB);
-    });
-
-    // Extra density on dirt road between bays 1↔101 (Road 0) — choke the corridor
-    const road0CenterY = rows[0].roadY + dirtRoadH / 2;
-    const occupiedCols = new Set(greenSUVs
-      .filter(s => Math.abs(s.y - (road0CenterY - 6)) < 10)
-      .map(s => Math.round((s.x - yardStartX) / garageW)));
-    const chokeCols = [4, 9, 14, 19, 24, 29, 34, 39, 44, 49, 54, 58, 68, 73, 78, 88, 93];
-    chokeCols.forEach(col => {
-      if (occupiedCols.has(col)) return;
-      const x = yardStartX + col * garageW + (garageW - 4) / 2;
-      // slight stagger so walk lanes zigzag
-      const yOff = (col % 2 === 0) ? -2 : 2;
-      pushGreen(x, road0CenterY - 6 + yOff, 'choke-r0-c' + col);
     });
 
     // --- Oil Tank & Deposit Pad at the end of the garage yard ---
@@ -704,6 +696,36 @@
       h: 100,
       activeTimer: 0
     };
+
+    // --- Fenced oil-tank yard (seals parking-lot approaches for BOTH modes) ---
+    // Compound encloses pad + tank. West/north/south walls are solid (no lot-edge gaps).
+    // East wall has a single gate so pad/vault stay reachable by looping around — not from the lot.
+    const oilYard = {
+      x: yardEndX + 30,
+      y: oilTank.y - 145,
+      w: 360,
+      h: 290,
+      wallT: 10,
+      gateGap: 78 // east entrance opening (centered on pad)
+    };
+    const oilFenceSegs = (() => {
+      const o = oilYard;
+      const t = o.wallT;
+      const gateCy = depositPad.y + depositPad.h / 2;
+      const gateTop = gateCy - o.gateGap / 2;
+      const gateBot = gateCy + o.gateGap / 2;
+      return [
+        // West wall — seals parking-lot / east-avenue approach (NO gaps)
+        { x: o.x, y: o.y, w: t, h: o.h, tag: 'west' },
+        // North wall
+        { x: o.x, y: o.y, w: o.w, h: t, tag: 'north' },
+        // South wall
+        { x: o.x, y: o.y + o.h - t, w: o.w, h: t, tag: 'south' },
+        // East wall split around gate
+        { x: o.x + o.w - t, y: o.y, w: t, h: Math.max(0, gateTop - o.y), tag: 'east-n' },
+        { x: o.x + o.w - t, y: gateBot, w: t, h: Math.max(0, o.y + o.h - gateBot), tag: 'east-s' }
+      ];
+    })();
 
     // Player Truck
     const player = {
@@ -890,18 +912,37 @@
           }
         }
 
-        // Green road blockers: truck AABB blocked; walker AABB narrow enough to squeeze past edges
+        // Player AABB: truck uses near-full body (sized vs blocker width); walk uses narrow hitbox
+        const halfW = state.inTruck ? player.w * 0.48 : 5;
+        const halfH = state.inTruck ? player.h * 0.48 : 5;
+
+        // Green road blockers: HARD-block vehicle/truck; walk may squeeze south-edge lane
         if (!blocked) {
-          const halfW = state.inTruck ? player.w * 0.42 : 5;
-          const halfH = state.inTruck ? player.h * 0.42 : 5;
           for (let gi = 0; gi < greenSUVs.length; gi++) {
             const s = greenSUVs[gi];
+            if (state.inTruck && !s.blockVehicle) continue;
+            if (!state.inTruck && s.blockWalk === false) {
+              // Cap rule: allow walk — still test narrow AABB so body isn't free-clip through center
+              // (south-edge gap is the intended squeeze path)
+            }
             const left = s.x - s.length / 2;
             const right = s.x + s.length / 2;
             const top = s.y - s.w / 2;
             const bottom = s.y + s.w / 2;
             if (nextX + halfW > left && nextX - halfW < right &&
                 nextY + halfH > top && nextY - halfH < bottom) {
+              blocked = true;
+              break;
+            }
+          }
+        }
+
+        // Oil-tank yard fence: impassable for BOTH truck and walking character
+        if (!blocked) {
+          for (let fi = 0; fi < oilFenceSegs.length; fi++) {
+            const f = oilFenceSegs[fi];
+            if (nextX + halfW > f.x && nextX - halfW < f.x + f.w &&
+                nextY + halfH > f.y && nextY - halfH < f.y + f.h) {
               blocked = true;
               break;
             }
@@ -1155,6 +1196,9 @@
         if (s.x + s.length < viewLeft || s.x - s.length > viewRight) return;
         renderGreenSUV(s);
       });
+
+      // Oil tank yard fence (behind pad/tank sprites)
+      renderOilYardFence();
 
       // Oil Tank & Deposit Pad
       renderOilTankAndPad();
@@ -1444,6 +1488,99 @@
       ctx.restore();
     }
 
+    function renderOilYardFence() {
+      const o = oilYard;
+      const t = o.wallT;
+      const gateCy = depositPad.y + depositPad.h / 2;
+      const gateTop = gateCy - o.gateGap / 2;
+      const gateBot = gateCy + o.gateGap / 2;
+
+      // Ground stain inside compound
+      ctx.fillStyle = 'rgba(40, 28, 18, 0.55)';
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+
+      // Soft drop shadow under fence line
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fillRect(o.x - 2, o.y + o.h - 2, o.w + 6, 8);
+
+      function drawFenceRun(x, y, w, h) {
+        // Rusty rail / post fill
+        ctx.fillStyle = '#5b4636';
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = '#3f3228';
+        ctx.fillRect(x + 1, y + 1, Math.max(0, w - 2), Math.max(0, h - 2));
+
+        // Chain-link diamond mesh
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+        ctx.lineWidth = 1;
+        const step = 8;
+        for (let i = -h; i < w + h; i += step) {
+          ctx.beginPath();
+          ctx.moveTo(x + i, y);
+          ctx.lineTo(x + i + h, y + h);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x + i, y + h);
+          ctx.lineTo(x + i + h, y);
+          ctx.stroke();
+        }
+        // Top rusty pipe
+        ctx.fillStyle = '#8b5a2b';
+        if (h <= t + 2) {
+          ctx.fillRect(x, y, w, 3);
+          ctx.fillStyle = '#a16207';
+          ctx.fillRect(x, y + h - 3, w, 3);
+        } else {
+          ctx.fillRect(x, y, 3, h);
+          ctx.fillStyle = '#a16207';
+          ctx.fillRect(x + w - 3, y, 3, h);
+        }
+        ctx.restore();
+
+        // Fence posts
+        ctx.fillStyle = '#78716c';
+        if (w >= h) {
+          for (let px = x; px <= x + w; px += 28) {
+            ctx.fillRect(px - 2, y - 4, 4, h + 8);
+          }
+        } else {
+          for (let py = y; py <= y + h; py += 28) {
+            ctx.fillRect(x - 4, py - 2, w + 8, 4);
+          }
+        }
+      }
+
+      // West / north / south solid; east split around gate
+      drawFenceRun(o.x, o.y, t, o.h);
+      drawFenceRun(o.x, o.y, o.w, t);
+      drawFenceRun(o.x, o.y + o.h - t, o.w, t);
+      drawFenceRun(o.x + o.w - t, o.y, t, Math.max(0, gateTop - o.y));
+      drawFenceRun(o.x + o.w - t, gateBot, t, Math.max(0, o.y + o.h - gateBot));
+
+      // Gate posts + hazard stripe at east entrance
+      ctx.fillStyle = '#a8a29e';
+      ctx.fillRect(o.x + o.w - t - 2, gateTop - 6, t + 4, 6);
+      ctx.fillRect(o.x + o.w - t - 2, gateBot, t + 4, 6);
+      ctx.fillStyle = '#eab308';
+      ctx.fillRect(o.x + o.w - t, gateTop, 3, o.gateGap);
+      ctx.fillStyle = '#111827';
+      for (let gy = gateTop; gy < gateBot; gy += 10) {
+        ctx.fillRect(o.x + o.w - t, gy, 3, 5);
+      }
+
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.75)';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('OIL TANK YARD — FENCED', o.x + o.w / 2, o.y - 8);
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+      ctx.font = '9px monospace';
+      ctx.fillText('NO ENTRY FROM PARKING LOT  ·  EAST GATE ONLY', o.x + o.w / 2, o.y + o.h + 14);
+    }
+
     function renderOilTankAndPad() {
       ctx.save();
       const pad = depositPad;
@@ -1639,6 +1776,9 @@
       radarCtx.fill();
 
       radarCtx.fillStyle = '#f59e0b';
+      radarCtx.strokeStyle = '#a8a29e';
+      radarCtx.lineWidth = 1;
+      radarCtx.strokeRect(oilYard.x * scaleX, oilYard.y * scaleY, oilYard.w * scaleX, oilYard.h * scaleY);
       radarCtx.fillRect(oilTank.x * scaleX - 3, oilTank.y * scaleY - 3, 7, 7);
 
       radarCtx.fillStyle = '#ef4444';

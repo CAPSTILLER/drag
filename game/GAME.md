@@ -1,6 +1,6 @@
 # CAPs Garage — Street Arcade BETA (500-Bay Yard)
 
-Playable retro soft-isometric arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, street → gate → parking-lot zoning, dirt service roads, parked blue SUV bay, teal-green road blockers, oil tank deposit pad, and the 3-second global cooldown gear vault.
+Playable retro soft-isometric arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, street → gate → parking-lot zoning, dirt service roads, parked blue SUV bay, teal-green road blockers (drive-block / walk-squeeze), fenced oil tank yard + deposit pad, and the 3-second global cooldown gear vault.
 
 Live repo: [CAPSTILLER/drag](https://github.com/CAPSTILLER/drag) · Live app: [caps-garage](https://bankr.bot/apps/caps-garage)
 
@@ -37,15 +37,15 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 ### 6. Teal-Green Road Blockers (Broke-Down SUVs)
 - Color: blue-green / teal-green (distinct from blue bay SUV and red player truck).
 - Inspect (E): exactly **`broke down, dont even try...`**
-- **Collision:** red truck AABB is blocked; walking character uses a narrower AABB and can squeeze along the road edge.
-- Placed mid-corridor on the dirt road between these garage pairs:
-  - `1 ↔ 101` (Road 0) — **extra dense choke** along this stretch so the red truck cannot freely cruise between bay 1 and 101
-  - `110 ↔ 210`, `230 ↔ 330`, `344 ↔ 444`, `262 ↔ 362`
+- **Collision:** red truck uses a near-full body AABB and is **hard-blocked**; walking character uses a narrow AABB and can squeeze the **south road edge**. Cap rule: block drive, allow walk.
+- **Allowlist only** (10 blockers — one mid-corridor SUV per pair; no Road-0 choke wall / no extras):
+  - `1 ↔ 101`, `110 ↔ 210`, `230 ↔ 330`, `344 ↔ 444`, `262 ↔ 362`
   - `63 ↔ 163`, `84 ↔ 184`, `395 ↔ 495`, `100 ↔ 200`, `400 ↔ 300`
 
-### 7. Community Oil Tank & Truck Deposit Pad
-- Giant industrial tank at the eastern end of the yard.
-- Concrete deposit pad with hazard chevrons.
+### 7. Community Oil Tank & Truck Deposit Pad (Fenced Yard)
+- Giant industrial tank at the eastern end of the yard inside a **chain-link / rusty fence** compound.
+- Concrete deposit pad with hazard chevrons (inside the compound).
+- **Fence collision:** impassable for **both** the red truck and the walking character. West/north/south walls seal parking-lot approaches (no lot-edge gaps). East wall has a single gate entrance — loop around to enter; do not enter from the lot.
 - **Automatic Deposit:** drive the truck onto the pad to unload cans, pump into the community tank, award DRB, expand Drop Vault pool.
 
 ### 8. 3-Second Global Cooldown on Gear Vault
@@ -71,9 +71,10 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 ## Playtest Tips (Chokepoints)
 
 1. Start on the **STREET**, drive east through the **GATE** into the **PARKING LOT**.
-2. Hop out (toggle truck) and **walk the edge** past a teal SUV — then remount and confirm the **red truck cannot** push through.
-3. Heaviest choke: dirt road between rows 0–1 from **bay 1 → bay 101** (and the whole Road 0 stretch).
-4. Other pair blockers: warp near Bay #42 then cruise east/west on Roads 0–3 to hit `63/163`, `84/184`, `110/210`, `230/330`, etc.
+2. Hop out (toggle truck) and **walk the south edge** past a teal SUV — then remount and confirm the **red truck cannot** push through.
+3. Cap allowlist choke: corridor between **bay 1 ↔ 101** (one clear pair, not a wall).
+4. Other pair blockers: `110/210`, `230/330`, `344/444`, `262/362`, `63/163`, `84/184`, `395/495`, `100/200`, `400/300`.
+5. Oil tank yard is fenced — confirm neither truck nor walker can enter from the parking lot; use the **east gate** (or warp) for the deposit pad.
 
 ---
 
