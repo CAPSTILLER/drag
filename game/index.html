@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>CAPs Garage — Street Arcade BETA (500-Bay Yard)</title>
-  <meta name="description" content="CAPs Garage street arcade beta: street vs parking-lot zoning, teal road blockers (drive-block / walk-squeeze), fenced oil tank yard, blue SUV bay #42, and 3s gear vault cooldown." />
+  <meta name="description" content="CAPs Garage street arcade beta: street vs parking-lot zoning, bottom garage wall + south street, teal blockers + bay-500 pile, right-side fence, oil yard, blue SUV #42, 3s gear vault." />
   <meta name="theme-color" content="#0b0e14" />
   <style>
     :root {
@@ -414,7 +414,7 @@
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
 
-    <div id="toast">Street → Gate → Lot. Teal SUVs hard-block the red truck (walk the south edge). Oil tank yard is fenced — no lot entry.</div>
+    <div id="toast">Street → Gate → Lot. Bottom wall seals garage from south street. Teal SUVs hard-block truck (walk-squeeze). Right fence + oil yard: no lot/street entry.</div>
 
     <div id="action-prompt" onclick="triggerCurrentAction()">
       <span class="key-pill" id="action-key">E</span>
@@ -727,6 +727,79 @@
       ];
     })();
 
+    // --- Bottom wall: full garage length between southernmost dirt road & lot/street ---
+    // Solid collision for BOTH truck and walk. Visual barrier (not invisible).
+    const bottomWall = {
+      x: yardStartX,
+      y: rows[4].roadY + dirtRoadH, // flush under Road 4 (southernmost bay-row dirt road)
+      w: yardEndX - yardStartX,
+      h: 14,
+      tag: 'bottom-garage-wall'
+    };
+
+    // --- Bottom E-W STREET (south of wall): asphalt + yellow dashes + curbs ---
+    // Replaces the old dark void / south-apron look with the same language as west STREET.
+    const bottomStreet = {
+      x: gate.x,
+      y: bottomWall.y + bottomWall.h,
+      w: world.width - gate.x - 20,
+      h: 110
+    };
+    // Ensure world fits the new south street band
+    world.height = Math.max(world.height, bottomStreet.y + bottomStreet.h + 80);
+
+    // --- Extra pile: 8 teal SUVs between bay #500 and the bottom street ---
+    // Cap ask: clog the bottom approach. Same green rules (truck hard-block, walk may squeeze).
+    // These 8 are EXTRA to the 10 corridor allowlist above.
+    (function placeBay500GreenPile() {
+      const bay500 = bayById(500);
+      if (!bay500) return;
+      const baseX = bay500.x + bay500.w / 2;
+      // Sit in the south approach: between bay/road and the bottom wall
+      const baseY = bottomWall.y - 28;
+      const offsets = [
+        [0, 0], [32, -10], [-34, -8], [18, 20], [-20, 18],
+        [48, 8], [-50, 6], [8, -26]
+      ];
+      offsets.forEach((off, i) => {
+        pushGreen(baseX + off[0], baseY + off[1], 'pile500-' + (i + 1));
+      });
+    })();
+
+    // --- Right-side dead-zone fence (lot + street sealed; oil east gate unchanged) ---
+    // Extends from the oil-yard west line north to the top parking edge and south to the
+    // bottom street, then runs to the end of the right side. No gaps from lot or street.
+    // Oil compound mid-band west wall stays the lot seal; east gate still the compound entry.
+    const rightFenceT = 10;
+    const rightSealX = oilYard.x; // flush with oil-yard west fence line
+    const rightSealRight = world.width - 24;
+    const rightFenceSegs = (() => {
+      const t = rightFenceT;
+      // Match render() streetTop = yardStartY - 50
+      const northY = yardStartY - 50;
+      const southBot = bottomStreet.y + bottomStreet.h;
+      const oilTop = oilYard.y;
+      const oilBot = oilYard.y + oilYard.h;
+      return [
+        // West — top parking → oil north (seal lot-edge north bypass)
+        { x: rightSealX, y: northY, w: t, h: Math.max(0, oilTop - northY), tag: 'right-west-top' },
+        // West — oil south → bottom street south curb (seal street/lot south bypass)
+        { x: rightSealX, y: oilBot, w: t, h: Math.max(0, southBot - oilBot), tag: 'right-west-bot' },
+        // North run — end of top lot to end of right side
+        { x: rightSealX, y: northY, w: rightSealRight - rightSealX, h: t, tag: 'right-north' },
+        // South run — end of bottom street to end of right side
+        { x: rightSealX, y: southBot - t, w: rightSealRight - rightSealX, h: t, tag: 'right-south' },
+        // East closer — end of the right side
+        { x: rightSealRight - t, y: northY, w: t, h: southBot - northY, tag: 'right-east' }
+      ];
+    })();
+
+    // Combined solid barriers (truck + walk): bottom wall + right-side fence
+    const solidBarriers = [
+      { x: bottomWall.x, y: bottomWall.y, w: bottomWall.w, h: bottomWall.h, tag: bottomWall.tag },
+      ...rightFenceSegs
+    ];
+
     // Player Truck
     const player = {
       x: yardStartX - 100,
@@ -949,6 +1022,18 @@
           }
         }
 
+        // Bottom garage wall + right-side dead-zone fence: impassable for BOTH modes
+        if (!blocked) {
+          for (let bi = 0; bi < solidBarriers.length; bi++) {
+            const b = solidBarriers[bi];
+            if (nextX + halfW > b.x && nextX - halfW < b.x + b.w &&
+                nextY + halfH > b.y && nextY - halfH < b.y + b.h) {
+              blocked = true;
+              break;
+            }
+          }
+        }
+
         if (!blocked) {
           player.x = Math.max(50, Math.min(world.width - 50, nextX));
           player.y = Math.max(50, Math.min(world.height - 50, nextY));
@@ -1105,11 +1190,13 @@
       ctx.textAlign = 'center';
       ctx.fillText('STREET', gate.x / 2, streetTop + streetH / 2 - 18);
 
-      // === PARKING LOT zone (inside yard after gate) ===
+      // === PARKING LOT zone (inside yard after gate) — north + mid only ===
+      // South of the bottom wall is STREET (drawn below), not lot.
+      const lotBottom = bottomWall.y;
       ctx.fillStyle = '#323842';
-      ctx.fillRect(gate.x, streetTop, yardEndX - gate.x + 90, streetH);
+      ctx.fillRect(gate.x, streetTop, yardEndX - gate.x + 90, lotBottom - streetTop);
 
-      // Parking stall markings (north & south apron)
+      // Parking stall markings (NORTH apron only — south is street)
       ctx.strokeStyle = 'rgba(226, 232, 240, 0.55)';
       ctx.lineWidth = 2;
       for (let px = yardStartX; px < yardEndX; px += 28) {
@@ -1117,17 +1204,11 @@
         ctx.moveTo(px, streetTop + 14);
         ctx.lineTo(px, streetTop + 42);
         ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(px, streetTop + streetH - 42);
-        ctx.lineTo(px, streetTop + streetH - 14);
-        ctx.stroke();
       }
       ctx.strokeStyle = 'rgba(226, 232, 240, 0.4)';
       ctx.beginPath();
       ctx.moveTo(yardStartX, streetTop + 42);
       ctx.lineTo(yardEndX, streetTop + 42);
-      ctx.moveTo(yardStartX, streetTop + streetH - 42);
-      ctx.lineTo(yardEndX, streetTop + streetH - 42);
       ctx.stroke();
 
       // PARKING LOT label near west apron inside
@@ -1136,9 +1217,38 @@
       ctx.textAlign = 'left';
       ctx.fillText('PARKING LOT', yardStartX + 40, streetTop + 34);
 
-      // East service apron (still parking lot)
+      // East service apron (still parking lot, clipped above bottom wall)
       ctx.fillStyle = '#2c323c';
-      ctx.fillRect(yardEndX, streetTop, world.width - yardEndX, streetH);
+      ctx.fillRect(yardEndX, streetTop, world.width - yardEndX, Math.max(0, lotBottom - streetTop));
+
+      // === BOTTOM E-W STREET (south of garage wall) ===
+      ctx.fillStyle = '#2a3038';
+      ctx.fillRect(bottomStreet.x, bottomStreet.y, bottomStreet.w, bottomStreet.h);
+      // Yellow dashed center line
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([18, 14]);
+      ctx.beginPath();
+      ctx.moveTo(bottomStreet.x + 20, bottomStreet.y + bottomStreet.h / 2);
+      ctx.lineTo(bottomStreet.x + bottomStreet.w - 20, bottomStreet.y + bottomStreet.h / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Curbs
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(bottomStreet.x, bottomStreet.y, bottomStreet.w, 8);
+      ctx.fillRect(bottomStreet.x, bottomStreet.y + bottomStreet.h - 8, bottomStreet.w, 8);
+      ctx.fillStyle = '#64748b';
+      for (let cx = bottomStreet.x + 20; cx < bottomStreet.x + bottomStreet.w - 10; cx += 36) {
+        ctx.fillRect(cx, bottomStreet.y + 1, 18, 6);
+        ctx.fillRect(cx, bottomStreet.y + bottomStreet.h - 7, 18, 6);
+      }
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.35)';
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('STREET', yardStartX + 40, bottomStreet.y + bottomStreet.h / 2 + 8);
+
+      // === Bottom garage wall (visual barrier full garage length) ===
+      renderBottomGarageWall();
 
       // Dirt service roads between garage rows (inside parking lot)
       for (let r = 0; r < garageRows; r++) {
@@ -1199,6 +1309,9 @@
 
       // Oil tank yard fence (behind pad/tank sprites)
       renderOilYardFence();
+
+      // Right-side dead-zone fence (seals lot + bottom street approaches)
+      renderRightDeadFence();
 
       // Oil Tank & Deposit Pad
       renderOilTankAndPad();
@@ -1486,6 +1599,95 @@
       ctx.fillText('BROKE DOWN', 0, -s.w / 2 - 6);
 
       ctx.restore();
+    }
+
+    function renderBottomGarageWall() {
+      const w = bottomWall;
+      // Soft ground shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(w.x - 2, w.y + w.h - 2, w.w + 4, 8);
+
+      // Concrete / barrier body
+      ctx.fillStyle = '#3f4a5a';
+      ctx.fillRect(w.x, w.y, w.w, w.h);
+      // Top face (extrusion read)
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(w.x, w.y, w.w, 4);
+      // Dark base lip
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(w.x, w.y + w.h - 3, w.w, 3);
+
+      // Hazard stripes along the wall
+      for (let sx = w.x + 8; sx < w.x + w.w - 8; sx += 28) {
+        ctx.fillStyle = '#eab308';
+        ctx.fillRect(sx, w.y + 4, 12, w.h - 7);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(sx + 12, w.y + 4, 12, w.h - 7);
+      }
+
+      // Occasional posts
+      ctx.fillStyle = '#94a3b8';
+      for (let px = w.x; px <= w.x + w.w; px += 54) {
+        ctx.fillRect(px - 2, w.y - 6, 4, w.h + 10);
+      }
+    }
+
+    function renderRightDeadFence() {
+      function drawFenceRun(x, y, w, h) {
+        ctx.fillStyle = '#5b4636';
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = '#3f3228';
+        ctx.fillRect(x + 1, y + 1, Math.max(0, w - 2), Math.max(0, h - 2));
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+        ctx.lineWidth = 1;
+        const step = 8;
+        for (let i = -h; i < w + h; i += step) {
+          ctx.beginPath();
+          ctx.moveTo(x + i, y);
+          ctx.lineTo(x + i + h, y + h);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x + i, y + h);
+          ctx.lineTo(x + i + h, y);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#8b5a2b';
+        if (h <= rightFenceT + 2) {
+          ctx.fillRect(x, y, w, 3);
+          ctx.fillStyle = '#a16207';
+          ctx.fillRect(x, y + h - 3, w, 3);
+        } else {
+          ctx.fillRect(x, y, 3, h);
+          ctx.fillStyle = '#a16207';
+          ctx.fillRect(x + w - 3, y, 3, h);
+        }
+        ctx.restore();
+        ctx.fillStyle = '#78716c';
+        if (w >= h) {
+          for (let px = x; px <= x + w; px += 28) {
+            ctx.fillRect(px - 2, y - 4, 4, h + 8);
+          }
+        } else {
+          for (let py = y; py <= y + h; py += 28) {
+            ctx.fillRect(x - 4, py - 2, w + 8, 4);
+          }
+        }
+      }
+
+      for (let i = 0; i < rightFenceSegs.length; i++) {
+        const s = rightFenceSegs[i];
+        drawFenceRun(s.x, s.y, s.w, s.h);
+      }
+
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.7)';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      const midX = (rightSealX + rightSealRight) / 2;
+      ctx.fillText('RESTRICTED — NO ENTRY FROM LOT / STREET', midX, (yardStartY - 50) + 24);
     }
 
     function renderOilYardFence() {
