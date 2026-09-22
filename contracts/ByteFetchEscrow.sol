@@ -14,7 +14,7 @@ interface IERC721 {
 /**
  * @title ByteFetchEscrow
  * @notice Utility escrow dispensing GEAR tokens when players walk Byte the dog.
- * @dev Enforces a per-wallet cooldown (60s) and verifies caller holds BYTE token dust.
+ * @dev Enforces a 3-second global cooldown on claims plus 60s per-wallet cooldown, and verifies caller holds BYTE token dust.
  */
 contract ByteFetchEscrow {
     IERC20 public immutable gearToken;
@@ -24,7 +24,9 @@ contract ByteFetchEscrow {
 
     uint256 public constant FETCH_REWARD = 1 * 1e18; // 1 GEAR
     uint256 public constant COOLDOWN = 60 seconds;
+    uint256 public constant GLOBAL_COOLDOWN = 3 seconds;
 
+    uint256 public lastGlobalAction;
     mapping(address => uint256) public lastFetchTime;
 
     event GearFetched(address indexed player, uint256 amount, uint256 timestamp);
@@ -33,6 +35,7 @@ contract ByteFetchEscrow {
 
     error NotAdminNftHolder();
     error NeedDustByte();
+    error GlobalCooldownActive(uint256 timeRemaining);
     error CooldownActive(uint256 timeRemaining);
     error EscrowEmpty();
 
@@ -61,10 +64,14 @@ contract ByteFetchEscrow {
 
     /**
      * @notice Player fetches 1 GEAR by interacting with Byte.
-     * @dev Requires caller to hold > 0 BYTE tokens and respects 60s cooldown.
+     * @dev Requires caller to hold > 0 BYTE tokens, respects 3s global cooldown and 60s per-wallet cooldown.
      */
     function fetchGear() external {
         if (byteToken.balanceOf(msg.sender) == 0) revert NeedDustByte();
+
+        if (block.timestamp < lastGlobalAction + GLOBAL_COOLDOWN) {
+            revert GlobalCooldownActive((lastGlobalAction + GLOBAL_COOLDOWN) - block.timestamp);
+        }
 
         uint256 nextAvailable = lastFetchTime[msg.sender] + COOLDOWN;
         if (block.timestamp < nextAvailable) {
@@ -75,6 +82,7 @@ contract ByteFetchEscrow {
             revert EscrowEmpty();
         }
 
+        lastGlobalAction = block.timestamp;
         lastFetchTime[msg.sender] = block.timestamp;
         bool ok = gearToken.transfer(msg.sender, FETCH_REWARD);
         require(ok, "GEAR transfer failed");
