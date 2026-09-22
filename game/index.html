@@ -2,76 +2,1296 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CAPs Garage — Street Arcade BETA</title>
-  <meta name="description" content="CAPs Garage street arcade beta. Cans are HUD. Public fillOil. BYTE fetch. Junkyard deferred." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>CAPs Garage — Street Arcade BETA (500-Bay Yard)</title>
+  <meta name="description" content="CAPs Garage street arcade beta: 5 rows of 100 garages, dirt roads separating rows, blue SUV bay, oil tank truck deposit pad, and 3-second global cooldown gear vault." />
   <meta name="theme-color" content="#0b0e14" />
-  <link rel="stylesheet" href="./css/game.css" />
+  <style>
+    :root {
+      --bg-base: #0a0d12;
+      --bg-surface: #121820;
+      --bg-elevated: #1a222d;
+      --border-subtle: #222d3d;
+      --border-accent: #f59e0b;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-oil: #f59e0b;
+      --accent-gear: #38bdf8;
+      --accent-byte: #10b981;
+      --accent-suv-red: #ef4444;
+      --accent-suv-blue: #3b82f6;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top HUD Bar */
+    header.hud-bar {
+      height: 52px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .hud-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-sim {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-oil);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .hud-stats {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      overflow-x: auto;
+    }
+
+    .stat-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .stat-pill.cans { border-color: var(--accent-oil); color: var(--accent-oil); }
+    .stat-pill.drb { border-color: #fbbf24; color: #fbbf24; }
+    .stat-pill.gear { border-color: var(--accent-gear); color: var(--accent-gear); }
+    .stat-pill.cooldown { border-color: #ec4899; color: #f472b6; }
+
+    .hud-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-hud {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .btn-hud:hover {
+      border-color: var(--accent-oil);
+      background: #222d3d;
+    }
+
+    /* Main Playfield */
+    #game-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #0d1218;
+    }
+
+    canvas#game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Toast */
+    #toast {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-30px);
+      opacity: 0;
+      background: rgba(18, 24, 32, 0.96);
+      border: 1px solid var(--accent-oil);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      pointer-events: none;
+      transition: all 0.25s ease-out;
+      z-index: 40;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      text-align: center;
+      max-width: 90%;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Radar / Mini-Map */
+    #radar-panel {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      width: 220px;
+      height: 110px;
+      background: rgba(15, 23, 34, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      overflow: hidden;
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #radar-panel .radar-title {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      padding: 3px 6px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #radar-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Action Prompt */
+    #action-prompt {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.92);
+      border: 2px solid var(--accent-gear);
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 30;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
+      cursor: pointer;
+    }
+
+    #action-prompt .key-pill {
+      background: #0284c7;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    /* Quick Test Controls */
+    #test-bench {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 250px;
+      background: rgba(18, 24, 32, 0.94);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 20;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+
+    #test-bench.collapsed {
+      width: 120px;
+      padding: 6px 10px;
+    }
+
+    #test-bench.collapsed .bench-body {
+      display: none;
+    }
+
+    .bench-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--accent-oil);
+      font-family: var(--font-mono);
+    }
+
+    .bench-body {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 4px;
+    }
+
+    .bench-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .bench-btn:hover {
+      background: #222d3d;
+      border-color: var(--accent-gear);
+    }
+
+    /* Mobile Controls */
+    #touch-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 120px;
+      height: 120px;
+      z-index: 25;
+      display: none;
+    }
+
+    .dpad-btn {
+      position: absolute;
+      width: 38px;
+      height: 38px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .dpad-btn:active {
+      background: rgba(245, 158, 11, 0.4);
+    }
+
+    .dpad-up { top: 0; left: 41px; }
+    .dpad-down { bottom: 0; left: 41px; }
+    .dpad-left { top: 41px; left: 0; }
+    .dpad-right { top: 41px; right: 0; }
+
+    #touch-action {
+      position: absolute;
+      bottom: 25px;
+      right: 240px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(245, 158, 11, 0.2);
+      border: 2px solid var(--accent-oil);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      z-index: 25;
+    }
+
+    @media (pointer: coarse), (max-width: 768px) {
+      #touch-controls, #touch-action { display: flex; }
+      #radar-panel { bottom: 140px; right: 10px; width: 160px; height: 90px; }
+      #test-bench { top: auto; bottom: 235px; right: 10px; }
+    }
+  </style>
 </head>
 <body>
-  <header class="game-header">
-    <div class="brand">
-      <h1>CAPs Garage</h1>
-      <span class="badge beta">Street Arcade BETA</span>
-      <span class="badge">Base 8453 · Mock</span>
+
+  <!-- Top HUD Bar -->
+  <header class="hud-bar">
+    <div class="hud-left">
+      <div class="brand-title">
+        <span>CAPs Garage</span>
+        <span class="badge-sim">Street Arcade BETA</span>
+      </div>
+      <div class="hud-stats">
+        <div class="stat-pill cans" id="pill-cans" title="Oil cans collected (Max 10)">
+          <span>🥫 Cans:</span> <strong id="hud-cans">0/10</strong>
+        </div>
+        <div class="stat-pill drb" id="pill-drb" title="Player DRB balance">
+          <span>🛢️ DRB:</span> <strong id="hud-drb">0</strong>
+        </div>
+        <div class="stat-pill gear" id="pill-gear" title="GEAR tools in backpack">
+          <span>⚙️ GEAR:</span> <strong id="hud-gear">1</strong>
+        </div>
+        <div class="stat-pill cooldown" id="pill-vault" title="Gear Vault Global Cooldown (3 seconds)">
+          <span>⏱️ Vault CD:</span> <strong id="hud-vault-cd">Ready (3s)</strong>
+        </div>
+      </div>
     </div>
-    <div class="header-actions">
-      <a href="../index.html" title="Master blueprint dossier">Blueprint</a>
-      <a href="./GAME.md" title="How to play">How to play</a>
-      <span class="wallet-chip" id="walletChip">No wallet</span>
-      <button type="button" class="primary" id="btnConnect">Connect Mock Wallet</button>
+
+    <div class="hud-actions">
+      <a class="btn-hud" href="../index.html" title="Master Blueprint Dossier">
+        <span>📋 Blueprint</span>
+      </a>
+      <a class="btn-hud" href="./GAME.md" title="Game Mechanics & Documentation">
+        <span>📖 GAME.md</span>
+      </a>
+      <button class="btn-hud" onclick="warpToPad()" title="Warp straight to Oil Tank Deposit Pad">
+        <span>🛢️ Oil Tank Pad</span>
+      </button>
+      <button class="btn-hud" onclick="warpToBlueSUV()" title="Warp to parked Blue SUV bay">
+        <span>🚙 Blue SUV Bay</span>
+      </button>
+      <button class="btn-hud" onclick="toggleAudio()" id="btn-audio">
+        <span>🔊 Audio: ON</span>
+      </button>
     </div>
   </header>
 
-  <div class="stage-wrap">
-    <canvas id="game" width="1280" height="720" aria-label="CAPs Garage street arcade"></canvas>
+  <!-- Game Playfield -->
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
 
-    <div class="hud-layer" aria-live="polite">
-      <div class="hud-card oil">
-        <div class="label">Oil Cans</div>
-        <div class="big" id="hudCans">0/10</div>
-        <div class="hud-row">
-          <span class="g">GEAR <span id="hudGear">0</span></span>
-          <span class="b">BYTE <span id="hudByte">0</span></span>
-          <span class="d">DRB <span id="hudDrb">0</span></span>
-        </div>
+    <div id="toast">Welcome to the 500-Bay Garage Yard! Drive down the dirt roads to collect cans.</div>
+
+    <div id="action-prompt" onclick="triggerCurrentAction()">
+      <span class="key-pill" id="action-key">E</span>
+      <span id="action-text">Action</span>
+    </div>
+
+    <!-- Mini-Map / Radar -->
+    <div id="radar-panel">
+      <div class="radar-title">
+        <span>YARD RADAR (5x100 BAYS)</span>
+        <span id="radar-coords">x: 0, y: 0</span>
       </div>
-      <div class="hud-card tank">
-        <div class="label">Tank Status</div>
-        <div class="bars">
-          <div class="bar fuel" title="Deposited cans (HUD)"><span id="barFuel"></span></div>
-          <div class="bar cool" title="Global fillOil cooldown"><span id="barCool"></span></div>
-          <div class="bar byte" title="BYTE claim cooldown"><span id="barByte"></span></div>
-        </div>
-        <div class="tank-meta" id="tankMeta">—</div>
+      <canvas id="radar-canvas"></canvas>
+    </div>
+
+    <!-- Test Rig -->
+    <div id="test-bench">
+      <div class="bench-header" onclick="toggleBench()">
+        <span>🛠️ Yard Rig & Cheats</span>
+        <span id="bench-toggle-icon">▼</span>
+      </div>
+      <div class="bench-body">
+        <button class="bench-btn" onclick="testGiveCans(10)">
+          <span>🥫 Fill 10 Cans</span>
+          <span>Max Pack</span>
+        </button>
+        <button class="bench-btn" onclick="testClaimGearVault()">
+          <span>⚙️ Claim Gear Vault</span>
+          <span>3s Cooldown</span>
+        </button>
+        <button class="bench-btn" onclick="testToggleTruck()">
+          <span>🚗 Hop In / Out Truck</span>
+          <span>Drive</span>
+        </button>
+        <button class="bench-btn" onclick="warpToPad()">
+          <span>🛢️ Warp to Oil Tank</span>
+          <span>Deposit Pad</span>
+        </button>
+        <button class="bench-btn" onclick="warpToBlueSUV()">
+          <span>🚙 Warp to Blue SUV</span>
+          <span>Bay #42</span>
+        </button>
+        <button class="bench-btn" onclick="resetPlayerPosition()">
+          <span>📍 Reset to West Gate</span>
+          <span>Spawn</span>
+        </button>
       </div>
     </div>
 
-    <div class="toast" id="toast" role="status"></div>
+    <!-- Mobile Touch -->
+    <div id="touch-controls">
+      <div class="dpad-btn dpad-up" data-dir="up">▲</div>
+      <div class="dpad-btn dpad-down" data-dir="down">▼</div>
+      <div class="dpad-btn dpad-left" data-dir="left">◀</div>
+      <div class="dpad-btn dpad-right" data-dir="right">▶</div>
+    </div>
+    <div id="touch-action" onclick="triggerCurrentAction()">ACTION<br>(E)</div>
   </div>
 
-  <div class="action-bar">
-    <button type="button" id="btnDeposit" disabled>Deposit Cans</button>
-    <button type="button" id="btnPump" disabled>Pump fillOil</button>
-    <button type="button" class="byte-btn" id="btnByte" disabled>BYTE Fetch</button>
-    <button type="button" id="btnRepair" disabled>Repair SUV</button>
-    <button type="button" class="drive-btn" id="btnDrive" disabled>Drive</button>
-    <span class="hint">WASD / arrows move · E deposit/pump · F BYTE · R repair/drive · Gate locked</span>
-  </div>
+  <script>
+    // --- Synthesizer Audio ---
+    let audioEnabled = true;
+    let audioCtx = null;
 
-  <footer class="game-footer">
-    <div>Cans = HUD only (cap 10) · fillOil public · Junkyard coming in update · Mock wallet</div>
-    <a
-      class="gear-home-cutout"
-      href="https://landonthis.gearup.wtf"
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Gear home — landonthis"
-    >
-      <img src="./assets/gear-logo.png" alt="" height="40" width="152" />
-    </a>
-  </footer>
+    function getAudioContext() {
+      if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
 
-  <script type="module" src="./js/main.js"></script>
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      document.getElementById('btn-audio').innerHTML = audioEnabled ? '<span>🔊 Audio: ON</span>' : '<span>🔇 Audio: OFF</span>';
+      if (audioEnabled) playTone(440, 'triangle', 0.1, 0.05);
+    }
+
+    function playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+      if (!audioEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playCanSfx() {
+      playTone(620, 'square', 0.05, 0.07);
+      setTimeout(() => playTone(920, 'triangle', 0.07, 0.07), 35);
+    }
+
+    function playDumpSfx() {
+      playTone(180, 'sawtooth', 0.25, 0.15);
+      setTimeout(() => playTone(320, 'triangle', 0.2, 0.15), 100);
+      setTimeout(() => playTone(540, 'sine', 0.35, 0.2), 220);
+    }
+
+    function playEngineSfx() {
+      playTone(105, 'sawtooth', 0.2, 0.1);
+    }
+
+    // --- State & Layout Configuration ---
+    const state = {
+      cans: 0,
+      maxCans: 10,
+      drb: 0,
+      gear: 1,
+      inTruck: true, // start driving the truck
+      gearVaultCooldown: 0, // 3-second global cooldown on gear vault
+      oilTankCooldown: 0, // 2-second pad trigger debouncer
+      vaultPool: 450000,
+      currentAction: null,
+      keys: { up: false, down: false, left: false, right: false }
+    };
+
+    // --- Canvas & Radar Setup ---
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const radarCanvas = document.getElementById('radar-canvas');
+    const radarCtx = radarCanvas.getContext('2d');
+    let width = 0;
+    let height = 0;
+
+    function resize() {
+      width = canvas.parentElement.clientWidth;
+      height = canvas.parentElement.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+
+      radarCanvas.width = radarCanvas.parentElement.clientWidth;
+      radarCanvas.height = radarCanvas.parentElement.clientHeight - 20;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- Yard Geometry: 5 Rows of 100 Garages + Dirt Roads ---
+    // Dirt roads are a little wider than the SUV:
+    // SUV width: 44px, Dirt Road height: 72px (comfortable clearance).
+    const garageRows = 5;
+    const garagesPerRow = 100;
+    const garageW = 54;
+    const garageH = 64;
+    const dirtRoadH = 72; // A little wider than SUV (44px)
+    const yardStartX = 500;
+    const yardStartY = 200;
+
+    // Calculate row Y positions
+    // Row 0: garageY, then Road 0, then Row 1, then Road 1...
+    const rows = [];
+    for (let r = 0; r < garageRows; r++) {
+      const gY = yardStartY + r * (garageH + dirtRoadH);
+      const roadY = gY + garageH; // dirt road directly beneath this garage row
+      rows.push({
+        rowIndex: r,
+        garageY: gY,
+        roadY: roadY,
+        roadH: dirtRoadH
+      });
+    }
+
+    const yardEndX = yardStartX + garagesPerRow * garageW; // 500 + 5400 = 5900px
+    const world = {
+      width: yardEndX + 1000, // room for Oil Tank at the end of the garage yard
+      height: yardStartY + garageRows * (garageH + dirtRoadH) + 300
+    };
+
+    // Build the 500 Garages (5 rows of 100 garages)
+    const garages = [];
+    for (let r = 0; r < garageRows; r++) {
+      for (let c = 0; c < garagesPerRow; c++) {
+        const id = r * garagesPerRow + c + 1;
+        garages.push({
+          id: id,
+          row: r,
+          col: c,
+          x: yardStartX + c * garageW,
+          y: rows[r].garageY,
+          w: garageW - 4, // 50px wide garage bay with 4px wall gap
+          h: garageH,
+          doorOpen: (id === 42) // Bay #42 is open for the Blue SUV!
+        });
+      }
+    }
+
+    // --- The Blue SUV inside Bay #42 ---
+    // "there is a blue suv inside a garage with just the front hanging out a little
+    // without overlapping any object that could come in contact with it.
+    // so if were driving the truck down the dirt road we wont be running into another suv."
+    const blueBay = garages.find(g => g.id === 42) || garages[41];
+    // Bay 42 is in Row 0 (faces Road 0 at roadY).
+    // SUV length: 56px, width: 36px.
+    // Parked inside: nose peeks out ~5px into threshold lip.
+    // Dirt road begins 6px lower and center is +36px away, zero overlap with dirt road driving corridor!
+    const blueSUV = {
+      x: blueBay.x + (blueBay.w / 2),
+      y: blueBay.y + blueBay.h - 18, // body inside garage, nose peeks out ~5px into threshold lip
+      w: 36,
+      length: 56,
+      heading: Math.PI / 2 // facing DOWN toward the door
+    };
+
+    // --- Oil Tank & Deposit Pad at the end of the garage yard ---
+    const oilTank = {
+      x: yardEndX + 220,
+      y: yardStartY + (garageRows * (garageH + dirtRoadH)) / 2 - 20,
+      radius: 65,
+      height: 120
+    };
+
+    // The Truck Deposit Pad: situated directly in front of the Oil Tank
+    const depositPad = {
+      x: yardEndX + 60,
+      y: oilTank.y - 50,
+      w: 120,
+      h: 100,
+      activeTimer: 0
+    };
+
+    // Player Truck
+    const player = {
+      x: yardStartX - 100,
+      y: rows[1].roadY + dirtRoadH / 2, // start on Dirt Road 1
+      speed: 3.5,
+      truckSpeed: 6.8,
+      w: 58,
+      h: 34,
+      heading: 0,
+      trail: []
+    };
+
+    // Oil Cans scattered down the dirt roads
+    let oilCans = [];
+    function spawnCans() {
+      oilCans = [];
+      for (let r = 0; r < garageRows - 1; r++) {
+        const roadCenterY = rows[r].roadY + dirtRoadH / 2;
+        for (let c = 5; c < garagesPerRow - 5; c += 4) {
+          oilCans.push({
+            x: yardStartX + c * garageW + Math.random() * 20,
+            y: roadCenterY + (Math.random() * 20 - 10),
+            bobble: Math.random() * Math.PI * 2
+          });
+        }
+      }
+    }
+    spawnCans();
+
+    // Floating deposit particles
+    let particles = [];
+
+    // --- Toast Helper ---
+    let toastTimeout = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.innerText = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        el.classList.remove('show');
+      }, 3500);
+    }
+
+    // --- Listeners ---
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') state.keys.up = true;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') state.keys.down = true;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') state.keys.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') state.keys.right = true;
+      if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
+        e.preventDefault();
+        triggerCurrentAction();
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') state.keys.up = false;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') state.keys.down = false;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') state.keys.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') state.keys.right = false;
+    });
+
+    document.querySelectorAll('.dpad-btn').forEach(btn => {
+      const dir = btn.getAttribute('data-dir');
+      btn.addEventListener('touchstart', e => { e.preventDefault(); state.keys[dir] = true; });
+      btn.addEventListener('touchend', e => { e.preventDefault(); state.keys[dir] = false; });
+      btn.addEventListener('mousedown', () => { state.keys[dir] = true; });
+      btn.addEventListener('mouseup', () => { state.keys[dir] = false; });
+    });
+
+    // --- Actions ---
+    function triggerCurrentAction() {
+      if (state.currentAction === 'inspect_blue_suv') {
+        showToast("🚙 Blue SUV tucked in Bay #42: Nose peeks out ~5px into door threshold, zero road overlap!");
+        playTone(520, 'sine', 0.15);
+      } else if (state.currentAction === 'claim_gear_vault') {
+        testClaimGearVault();
+      } else if (state.currentAction === 'toggle_truck') {
+        testToggleTruck();
+      }
+    }
+
+    function testClaimGearVault() {
+      if (state.gearVaultCooldown > 0) {
+        showToast(`⏳ Gear Vault Cooldown active! (${state.gearVaultCooldown.toFixed(1)}s remaining)`);
+        playTone(200, 'sawtooth', 0.15);
+        return;
+      }
+
+      state.gear += 1;
+      state.gearVaultCooldown = 3.0; // 3-second global cooldown!
+      updateHUD();
+      playTone(580, 'square', 0.15);
+      showToast("⚙️ +1 GEAR Tool claimed from Gear Vault! 3s global cooldown triggered.");
+    }
+
+    function testToggleTruck() {
+      state.inTruck = !state.inTruck;
+      if (state.inTruck) {
+        playEngineSfx();
+        showToast("🚗 Driving the Red Truck down the dirt road!");
+      } else {
+        showToast("🚶 On foot in the garage yard.");
+      }
+    }
+
+    function testGiveCans(n) {
+      state.cans = Math.min(state.maxCans, state.cans + n);
+      updateHUD();
+      playCanSfx();
+      showToast(`🥫 Packed ${state.cans}/10 Cans! Drive onto the Oil Tank pad at the end of the yard.`);
+    }
+
+    function warpToPad() {
+      player.x = depositPad.x + depositPad.w / 2;
+      player.y = depositPad.y + depositPad.h / 2;
+      showToast("📍 Arrived at the Oil Tank Deposit Pad!");
+    }
+
+    function warpToBlueSUV() {
+      player.x = blueBay.x + blueBay.w / 2;
+      player.y = rows[0].roadY + dirtRoadH / 2; // directly on the dirt road in front of bay 42
+      showToast("📍 Arrived on the dirt road outside Blue SUV Bay #42!");
+    }
+
+    function resetPlayerPosition() {
+      player.x = yardStartX - 100;
+      player.y = rows[1].roadY + dirtRoadH / 2;
+      showToast("📍 Reset to west entry dirt road.");
+    }
+
+    // --- Main Update Loop ---
+    let lastTime = performance.now();
+
+    function update(dt) {
+      // 3-second global cooldown countdown
+      if (state.gearVaultCooldown > 0) {
+        state.gearVaultCooldown -= dt;
+        if (state.gearVaultCooldown < 0) state.gearVaultCooldown = 0;
+        updateHUD();
+      }
+
+      if (state.oilTankCooldown > 0) {
+        state.oilTankCooldown -= dt;
+        if (state.oilTankCooldown < 0) state.oilTankCooldown = 0;
+      }
+
+      if (depositPad.activeTimer > 0) {
+        depositPad.activeTimer -= dt;
+      }
+
+      // Movement
+      let dx = 0;
+      let dy = 0;
+      if (state.keys.up) dy -= 1;
+      if (state.keys.down) dy += 1;
+      if (state.keys.left) dx -= 1;
+      if (state.keys.right) dx += 1;
+
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.hypot(dx, dy);
+        dx /= len;
+        dy /= len;
+
+        const spd = state.inTruck ? player.truckSpeed : player.speed;
+        const nextX = player.x + dx * spd;
+        const nextY = player.y + dy * spd;
+
+        // Collision check with closed garages
+        let blocked = false;
+        for (let i = 0; i < garageRows; i++) {
+          const r = rows[i];
+          if (nextX >= yardStartX && nextX <= yardEndX && nextY >= r.garageY && nextY <= r.garageY + garageH - 6) {
+            if (Math.abs(nextX - (blueBay.x + blueBay.w / 2)) < 18 && i === 0) {
+              // Can inspect blue bay up to threshold
+            } else {
+              blocked = true;
+            }
+          }
+        }
+
+        if (!blocked) {
+          player.x = Math.max(50, Math.min(world.width - 50, nextX));
+          player.y = Math.max(50, Math.min(world.height - 50, nextY));
+        }
+
+        player.heading = Math.atan2(dy, dx);
+
+        // Dust trails
+        if (state.inTruck && Math.random() < 0.3) {
+          player.trail.push({
+            x: player.x - Math.cos(player.heading) * 20 + (Math.random() * 8 - 4),
+            y: player.y - Math.sin(player.heading) * 20 + (Math.random() * 8 - 4),
+            alpha: 0.6,
+            size: Math.random() * 6 + 4
+          });
+          if (player.trail.length > 40) player.trail.shift();
+        }
+      }
+
+      player.trail.forEach(t => { t.alpha -= dt * 0.7; });
+      player.trail = player.trail.filter(t => t.alpha > 0);
+
+      // Collect oil cans
+      const pickupRange = state.inTruck ? 38 : 24;
+      for (let i = oilCans.length - 1; i >= 0; i--) {
+        const can = oilCans[i];
+        if (Math.hypot(player.x - can.x, player.y - can.y) < pickupRange) {
+          if (state.cans < state.maxCans) {
+            oilCans.splice(i, 1);
+            state.cans++;
+            playCanSfx();
+            updateHUD();
+            showToast(`🥫 Collected Can! (${state.cans}/${state.maxCans})`);
+          }
+        }
+      }
+
+      // TRUCK DEPOSIT PAD AUTOMATIC DEPOSIT
+      const onPad = (player.x >= depositPad.x && player.x <= depositPad.x + depositPad.w &&
+                     player.y >= depositPad.y && player.y <= depositPad.y + depositPad.h);
+
+      if (onPad && state.inTruck) {
+        if (state.cans > 0 && state.oilTankCooldown <= 0) {
+          const deposited = state.cans;
+          state.cans = 0;
+          state.drb += Math.max(1, Math.floor(deposited / 2));
+          state.vaultPool += deposited * 5;
+          state.oilTankCooldown = 2.0;
+          depositPad.activeTimer = 1.2;
+
+          playDumpSfx();
+          updateHUD();
+          showToast(`🛢️ DEPOSITED ON PAD! ${deposited} Cans pumped into Oil Tank! Earned +${Math.max(1, Math.floor(deposited / 2))} DRB!`);
+
+          for (let p = 0; p < 25; p++) {
+            particles.push({
+              x: depositPad.x + depositPad.w / 2,
+              y: depositPad.y + depositPad.h / 2,
+              vx: (Math.random() - 0.5) * 120,
+              vy: -Math.random() * 100 - 30,
+              alpha: 1,
+              color: '#f59e0b'
+            });
+          }
+        }
+      }
+
+      particles.forEach(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.alpha -= dt * 1.2;
+      });
+      particles = particles.filter(p => p.alpha > 0);
+
+      // Proximity
+      const distToBlue = Math.hypot(player.x - blueSUV.x, player.y - blueSUV.y);
+      const promptEl = document.getElementById('action-prompt');
+      const actionTextEl = document.getElementById('action-text');
+
+      if (distToBlue < 65) {
+        state.currentAction = 'inspect_blue_suv';
+        promptEl.style.display = 'flex';
+        actionTextEl.innerText = 'Inspect Blue SUV in Bay #42 (E)';
+      } else if (onPad && state.cans === 0) {
+        state.currentAction = null;
+        promptEl.style.display = 'flex';
+        actionTextEl.innerText = 'Oil Tank Pad Active — Ready for Cans';
+      } else {
+        state.currentAction = null;
+        promptEl.style.display = 'none';
+      }
+
+      document.getElementById('radar-coords').innerText = `x: ${Math.round(player.x)}, y: ${Math.round(player.y)}`;
+    }
+
+    // --- Render Loop ---
+    function render() {
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.translate(width / 2 - player.x, height / 2 - player.y);
+
+      // Terrain Base
+      ctx.fillStyle = '#17120e';
+      ctx.fillRect(0, 0, world.width, world.height);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, yardStartY - 40, yardStartX, garageRows * (garageH + dirtRoadH) + 80);
+
+      ctx.fillStyle = '#221e1a';
+      ctx.fillRect(yardEndX, yardStartY - 40, world.width - yardEndX, garageRows * (garageH + dirtRoadH) + 80);
+
+      // 5 Dirt Roads between the rows
+      for (let r = 0; r < garageRows; r++) {
+        const road = rows[r];
+
+        ctx.fillStyle = '#3a2e22';
+        ctx.fillRect(yardStartX - 80, road.roadY, (yardEndX - yardStartX) + 160, road.roadH);
+
+        // Tire ruts
+        ctx.strokeStyle = '#2b2118';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(yardStartX - 80, road.roadY + 18);
+        ctx.lineTo(yardEndX + 80, road.roadY + 18);
+        ctx.moveTo(yardStartX - 80, road.roadY + road.roadH - 18);
+        ctx.lineTo(yardEndX + 80, road.roadY + road.roadH - 18);
+        ctx.stroke();
+
+        ctx.fillStyle = '#4b3c2c';
+        ctx.fillRect(yardStartX - 80, road.roadY, (yardEndX - yardStartX) + 160, 3);
+        ctx.fillRect(yardStartX - 80, road.roadY + road.roadH - 3, (yardEndX - yardStartX) + 160, 3);
+      }
+
+      ctx.fillStyle = '#3a2e22';
+      ctx.fillRect(yardStartX - 60, yardStartY, 60, garageRows * (garageH + dirtRoadH));
+      ctx.fillRect(yardEndX, yardStartY, 70, garageRows * (garageH + dirtRoadH));
+
+      // Dust trails
+      player.trail.forEach(t => {
+        ctx.fillStyle = `rgba(140, 110, 80, ${t.alpha})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 500 Garages
+      const viewLeft = player.x - width / 2 - 100;
+      const viewRight = player.x + width / 2 + 100;
+
+      garages.forEach(g => {
+        if (g.x + g.w < viewLeft || g.x > viewRight) return;
+
+        ctx.fillStyle = '#1c2430';
+        ctx.fillRect(g.x, g.y, g.w, g.h);
+
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(g.x, g.y, g.w, g.h);
+
+        if (g.doorOpen) {
+          ctx.fillStyle = '#0f1722';
+          ctx.fillRect(g.x + 3, g.y + 12, g.w - 6, g.h - 12);
+          ctx.strokeStyle = '#38bdf8';
+          ctx.strokeRect(g.x + 2, g.y + 11, g.w - 4, g.h - 11);
+        } else {
+          ctx.fillStyle = '#273549';
+          ctx.fillRect(g.x + 4, g.y + 14, g.w - 8, g.h - 14);
+
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1;
+          for (let s = g.y + 18; s < g.y + g.h; s += 6) {
+            ctx.beginPath();
+            ctx.moveTo(g.x + 4, s);
+            ctx.lineTo(g.x + g.w - 4, s);
+            ctx.stroke();
+          }
+        }
+
+        ctx.fillStyle = g.doorOpen ? '#38bdf8' : '#64748b';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('#' + g.id, g.x + 5, g.y + 10);
+      });
+
+      // Blue SUV inside Bay #42
+      renderBlueSUV(blueSUV.x, blueSUV.y);
+
+      // Oil Tank & Deposit Pad
+      renderOilTankAndPad();
+
+      // Oil Cans
+      oilCans.forEach(can => {
+        if (can.x < viewLeft || can.x > viewRight) return;
+        const bob = Math.sin(performance.now() * 0.005 + can.bobble) * 2;
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+        ctx.beginPath();
+        ctx.arc(can.x, can.y + 3, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(can.x - 6, can.y - 8 + bob, 12, 16);
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(can.x, can.y - 8 + bob, 6, 0, Math.PI, true);
+        ctx.fill();
+        ctx.fillStyle = '#d97706';
+        ctx.fillRect(can.x - 2, can.y - 12 + bob, 4, 4);
+      });
+
+      // Particles
+      particles.forEach(p => {
+        ctx.fillStyle = `rgba(245, 158, 11, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Player
+      if (state.inTruck) {
+        renderRedTruck(player.x, player.y, player.heading);
+      } else {
+        renderDriver(player.x, player.y, player.heading);
+      }
+
+      ctx.restore();
+      renderRadar();
+    }
+
+    function renderBlueSUV(cx, cy) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(-blueSUV.w / 2 - 2, -blueSUV.length / 2 - 2, blueSUV.w + 4, blueSUV.length + 4);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-blueSUV.w / 2 - 3, -blueSUV.length / 2 + 6, 4, 12);
+      ctx.fillRect(blueSUV.w / 2 - 1, -blueSUV.length / 2 + 6, 4, 12);
+      ctx.fillRect(-blueSUV.w / 2 - 3, blueSUV.length / 2 - 16, 4, 12);
+      ctx.fillRect(blueSUV.w / 2 - 1, blueSUV.length / 2 - 16, 4, 12);
+
+      ctx.fillStyle = '#2563eb';
+      ctx.beginPath();
+      ctx.roundRect(-blueSUV.w / 2, -blueSUV.length / 2, blueSUV.w, blueSUV.length, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#1e3a8a';
+      ctx.fillRect(-blueSUV.w / 2 + 4, -blueSUV.length / 2 + 10, blueSUV.w - 8, blueSUV.length - 20);
+
+      ctx.fillStyle = '#93c5fd';
+      ctx.fillRect(-blueSUV.w / 2 + 6, blueSUV.length / 2 - 18, blueSUV.w - 12, 6);
+      ctx.fillRect(-blueSUV.w / 2 + 6, -blueSUV.length / 2 + 12, blueSUV.w - 12, 5);
+
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(-blueSUV.w / 2 + 3, blueSUV.length / 2 - 2, 6, 3);
+      ctx.fillRect(blueSUV.w / 2 - 9, blueSUV.length / 2 - 2, 6, 3);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(-5, blueSUV.length / 2 - 2, 10, 3);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('BLUE SUV (BAY #42)', 0, -blueSUV.length / 2 - 6);
+
+      ctx.restore();
+    }
+
+    function renderOilTankAndPad() {
+      ctx.save();
+      const pad = depositPad;
+
+      ctx.fillStyle = pad.activeTimer > 0 ? '#3b2f1e' : '#1e293b';
+      ctx.fillRect(pad.x, pad.y, pad.w, pad.h);
+      ctx.strokeStyle = pad.activeTimer > 0 ? '#10b981' : '#f59e0b';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(pad.x, pad.y, pad.w, pad.h);
+
+      ctx.fillStyle = '#eab308';
+      for (let s = pad.x; s < pad.x + pad.w - 10; s += 16) {
+        ctx.fillRect(s, pad.y, 8, 4);
+        ctx.fillRect(s, pad.y + pad.h - 4, 8, 4);
+      }
+
+      ctx.strokeStyle = pad.activeTimer > 0 ? '#34d399' : 'rgba(245, 158, 11, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(pad.x + pad.w / 2, pad.y + pad.h / 2, 28, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('TRUCK DEPOSIT PAD', pad.x + pad.w / 2, pad.y + pad.h / 2 - 6);
+      ctx.font = '9px monospace';
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(state.oilTankCooldown > 0 ? `COOLING (${state.oilTankCooldown.toFixed(1)}s)` : 'DRIVE TRUCK HERE TO DUMP', pad.x + pad.w / 2, pad.y + pad.h / 2 + 10);
+
+      const tank = oilTank;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.beginPath();
+      ctx.ellipse(tank.x, tank.y + 40, tank.radius + 10, tank.radius / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(tank.x - tank.radius, tank.y - tank.height / 2, tank.radius * 2, tank.height);
+
+      ctx.fillStyle = '#475569';
+      ctx.beginPath();
+      ctx.arc(tank.x, tank.y - tank.height / 2, tank.radius, Math.PI, 0);
+      ctx.fill();
+
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(tank.x - tank.radius, tank.y);
+      ctx.lineTo(tank.x + tank.radius, tank.y);
+      ctx.moveTo(tank.x - tank.radius, tank.y + 35);
+      ctx.lineTo(tank.x + tank.radius, tank.y + 35);
+      ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(tank.x - tank.radius + 10, tank.y - 20, (tank.radius - 10) * 2, 24);
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('COMMUNITY OIL TANK', tank.x, tank.y - 6);
+      ctx.font = '8px monospace';
+      ctx.fillText('DRB DROP VAULT', tank.x, tank.y + 2);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(tank.x + tank.radius - 16, tank.y - 40, 8, 80);
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(tank.x + tank.radius - 15, tank.y + 40 - 55, 6, 55);
+
+      ctx.restore();
+    }
+
+    function renderRedTruck(x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.fillRect(-player.w / 2 - 3, -player.h / 2 - 3, player.w + 6, player.h + 6);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-player.w / 2 + 6, -player.h / 2 - 4, 14, 6);
+      ctx.fillRect(player.w / 2 - 20, -player.h / 2 - 4, 14, 6);
+      ctx.fillRect(-player.w / 2 + 6, player.h / 2 - 2, 14, 6);
+      ctx.fillRect(player.w / 2 - 20, player.h / 2 - 2, 14, 6);
+
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.roundRect(-player.w / 2, -player.h / 2, player.w, player.h, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#991b1b';
+      ctx.fillRect(0, -player.h / 2 + 3, player.w / 2 - 4, player.h - 6);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(player.w / 4, -player.h / 2 + 5, 6, player.h - 10);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-player.w / 2 + 4, -player.h / 2 + 4, player.w / 2 - 6, player.h - 8);
+
+      if (state.cans > 0) {
+        ctx.fillStyle = '#f59e0b';
+        const cols = Math.min(state.cans, 5);
+        for (let i = 0; i < cols; i++) {
+          ctx.beginPath();
+          ctx.arc(-player.w / 2 + 8 + i * 4, 0, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(player.w / 2 - 2, -player.h / 2 + 4, 2, 6);
+      ctx.fillRect(player.w / 2 - 2, player.h / 2 - 10, 2, 6);
+
+      ctx.restore();
+    }
+
+    function renderDriver(x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(0, 3, 12, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#2563eb';
+      ctx.beginPath();
+      ctx.arc(0, 0, 11, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(3, 0, 7, -Math.PI / 2, Math.PI / 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function renderRadar() {
+      const rw = radarCanvas.width;
+      const rh = radarCanvas.height;
+      radarCtx.clearRect(0, 0, rw, rh);
+
+      const scaleX = rw / world.width;
+      const scaleY = rh / world.height;
+
+      radarCtx.fillStyle = '#1e293b';
+      radarCtx.fillRect(yardStartX * scaleX, yardStartY * scaleY, (yardEndX - yardStartX) * scaleX, (garageRows * (garageH + dirtRoadH)) * scaleY);
+
+      radarCtx.fillStyle = '#785638';
+      for (let r = 0; r < garageRows; r++) {
+        radarCtx.fillRect(yardStartX * scaleX, rows[r].roadY * scaleY, (yardEndX - yardStartX) * scaleX, dirtRoadH * scaleY);
+      }
+
+      radarCtx.fillStyle = '#38bdf8';
+      radarCtx.beginPath();
+      radarCtx.arc(blueSUV.x * scaleX, blueSUV.y * scaleY, 3, 0, Math.PI * 2);
+      radarCtx.fill();
+
+      radarCtx.fillStyle = '#f59e0b';
+      radarCtx.fillRect(oilTank.x * scaleX - 3, oilTank.y * scaleY - 3, 7, 7);
+
+      radarCtx.fillStyle = '#ef4444';
+      radarCtx.beginPath();
+      radarCtx.arc(player.x * scaleX, player.y * scaleY, 4, 0, Math.PI * 2);
+      radarCtx.fill();
+    }
+
+    function updateHUD() {
+      document.getElementById('hud-cans').innerText = `${state.cans}/${state.maxCans}`;
+      document.getElementById('hud-drb').innerText = state.drb;
+      document.getElementById('hud-gear').innerText = state.gear;
+
+      const cdEl = document.getElementById('hud-vault-cd');
+      if (state.gearVaultCooldown > 0) {
+        cdEl.innerText = `${state.gearVaultCooldown.toFixed(1)}s`;
+        document.getElementById('pill-vault').style.borderColor = '#ec4899';
+      } else {
+        cdEl.innerText = 'Ready (3s)';
+        document.getElementById('pill-vault').style.borderColor = 'var(--border-subtle)';
+      }
+    }
+    updateHUD();
+
+    function loop(time) {
+      const dt = (time - lastTime) / 1000;
+      lastTime = time;
+      update(Math.min(dt, 0.1));
+      render();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    function toggleBench() {
+      const bench = document.getElementById('test-bench');
+      bench.classList.toggle('collapsed');
+      document.getElementById('bench-toggle-icon').innerText = bench.classList.contains('collapsed') ? '▲' : '▼';
+    }
+  </script>
 </body>
 </html>
