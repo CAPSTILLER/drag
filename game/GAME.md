@@ -1,6 +1,6 @@
 # CAPs Garage — Street Arcade BETA (500-Bay Yard)
 
-Playable retro soft-isometric arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, street → gate → parking-lot zoning, bottom garage wall + south E–W street, dirt service roads, parked blue SUV bay, teal-green road blockers (10 corridor allowlist + bay-500 pile), right-side dead-zone fence, fenced oil tank yard + deposit pad, and the 3-second global cooldown gear vault.
+Playable retro soft-isometric arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, street → gate-only → parking-lot zoning, bottom garage wall + south E–W street, dirt service roads, parked blue SUV bay, teal-green road blockers (10 corridor allowlist + bay-500 pile right of 500), yard-edge right-side dead-zone fence, fenced oil tank yard + deposit pad, and the 3-second global cooldown gear vault.
 
 Live repo: [CAPSTILLER/drag](https://github.com/CAPSTILLER/drag) · Live app: [caps-garage](https://bankr.bot/apps/caps-garage)
 
@@ -16,6 +16,7 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 - **PARKING LOT** — asphalt with white stall markings **inside the yard after the gate** (north apron + mid yard). South margin is street, not lot stalls.
 - Dirt service roads still separate garage rows inside the lot (tire ruts, dust).
 - Soft-isometric gate marks the west STREET ↔ LOT threshold.
+- **West front walls** — solid wall/fence on the yard’s west face **north and south of the gate**. Drive/walk cannot slip into the parking lot from the west STREET except through the **GATE** opening (Road 1 band).
 - **Bottom garage wall** — solid visual barrier the **full garage length** between the southernmost bay-row dirt road (Road 4 under bays 401–500) and the parking-lot / south-street strip. Collision blocks **truck and walk**.
 
 ### 2. Stronger 2.5D Look
@@ -43,13 +44,13 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 - **Corridor allowlist** (10 blockers — one mid-corridor SUV per pair; no Road-0 choke wall):
   - `1 ↔ 101`, `110 ↔ 210`, `230 ↔ 330`, `344 ↔ 444`, `262 ↔ 362`
   - `63 ↔ 163`, `84 ↔ 184`, `395 ↔ 495`, `100 ↔ 200`, `400 ↔ 300`
-- **Bay #500 pile (extra):** exactly **8** piled teal SUVs between **bay 500** and the **bottom street**, clogging that south approach. Same inspect copy + truck-block / walk-squeeze rules. These 8 are **in addition to** the 10 corridor allowlist.
+- **Bay #500 pile (extra):** exactly **8** piled teal SUVs sitting **just to the right of bay 500** (south approach between bay/road and bottom wall). Bay 500 door/approach stays accessible; pile still clogs the bottom approach toward the street/wall. Same inspect copy + truck-block / walk-squeeze rules. These 8 are **in addition to** the 10 corridor allowlist.
 
 ### 7. Community Oil Tank & Truck Deposit Pad (Fenced Yard)
 - Giant industrial tank at the eastern end of the yard inside a **chain-link / rusty fence** compound.
 - Concrete deposit pad with hazard chevrons (inside the compound).
 - **Fence collision:** impassable for **both** the red truck and the walking character. West/north/south walls seal parking-lot approaches (no lot-edge gaps). East wall has a single gate entrance — east gate OK; do not enter from the lot.
-- **Right-side dead-zone fence:** chain-link/rusty runs from the **end of the parking lot (top) and bottom street** out to the **end of the right side**, flush with the oil-yard west line north/south so you **cannot enter** the restricted east pocket from the parking lots or the south street. Solid for truck and walk.
+- **Right-side dead-zone fence:** chain-link/rusty mirrors the **top yard edge** on the bottom — runs from the **end of the south wall** along the **yard** perimeter out to the end of the right side (flush with the oil-yard west line). **Does not cross the bottom street**; south asphalt stays drivable/walkable. Seals the restricted east pocket from the **lot/yard** side. Solid for truck and walk.
 - **Automatic Deposit:** drive the truck onto the pad to unload cans, pump into the community tank, award DRB, expand Drop Vault pool.
 
 ### 8. 3-Second Global Cooldown on Gear Vault
@@ -74,12 +75,12 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 
 ## Playtest Tips (Chokepoints)
 
-1. Start on the west **STREET**, drive east through the **GATE** into the **PARKING LOT**.
+1. Start on the west **STREET**, drive east **only through the GATE** into the **PARKING LOT** — west front walls north/south of the gate block slip-ins.
 2. Drive south to **Road 4** (under bays 401–500): confirm the **bottom wall** blocks truck and walk from dropping into the south street; the band below the wall should read as **STREET** (asphalt + yellow dashes + curbs).
-3. At **bay #500**, confirm a **pile of 8 teal SUVs** clogs the bottom approach — truck hard-blocked; walk may find a thin squeeze; inspect still `broke down, dont even try...`.
+3. At **bay #500**, confirm the **pile of 8 teal SUVs** sits **just to the right** of the bay (door/approach usable) while still clogging the bottom approach — truck hard-blocked; walk may find a thin squeeze; inspect still `broke down, dont even try...`.
 4. Hop out and **walk the south edge** past a corridor teal SUV — then remount and confirm the **red truck cannot** push through.
 5. Cap allowlist choke: corridor between **bay 1 ↔ 101** (one clear pair, not a wall). Other pairs: `110/210`, `230/330`, `344/444`, `262/362`, `63/163`, `84/184`, `395/495`, `100/200`, `400/300`.
-6. **Right-side fence** + oil yard: confirm neither truck nor walker can enter the east restricted zone from the parking lot or bottom street; oil **east gate** (or warp) for the deposit pad.
+6. **Right-side fence** + oil yard: fence follows the **yard** south edge (not across bottom street). Confirm lot/yard cannot enter the east restricted zone; oil **east gate** (or warp) for the deposit pad. South street remains clear along the asphalt.
 
 ---
 
