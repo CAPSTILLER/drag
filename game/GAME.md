@@ -1,82 +1,57 @@
-# CAPs Garage — Street Arcade BETA
+# CAPs Garage — Street Arcade BETA (500-Bay Yard)
 
-Soft isometric / 2.5D street arcade for **CAPs Garage** on Base. Canvas projects the street with a slight angled pull-back (not pure top-down, not a full 3D engine). This folder is a static playable build; the repo root `index.html` remains the architecture **blueprint dossier**.
+Playable retro top-down arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, dirt roads, parked blue SUV bay, oil tank deposit pad, and the 3-second global cooldown gear vault.
 
-Concept north star: `assets/concept-caps-garage.jpg` (also at repo root).
-
-**Live chain status:** Mock wallet only. Bankr live Base (8453) wiring lives in `js/chain/liveProvider.js` stubs — **not** flipped on `main` (`USE_LIVE = false`). Sepolia / mainnet claim flows are **not** wired yet.
+Live repo: [CAPSTILLER/drag](https://github.com/CAPSTILLER/drag) · Live app: [caps-garage](https://bankr.bot/apps/caps-garage)
 
 ---
 
-## How to play (local)
+## What's in the Beta
 
-```bash
-# from repo root — any static server (ES modules need http:// not file://)
-npx --yes serve .
-# open http://localhost:3000/game/
-```
+### 1. 500-Bay Garage Yard (5 Rows x 100 Garages)
+- 5 horizontal rows of 100 garages each (bays #1 to #500).
+- Corrugated metal roll-up doors with live bay number plates.
+- Viewport culling keeps performance butter-smooth across mobile and desktop.
 
-Or open the Vercel deployment with root directory set to `game/` (arcade) or keep root as the dossier and visit `/game/`.
+### 2. Dedicated Dirt Roads
+- 5 dirt roads separating the rows, calibrated at 72px wide to be comfortably wider than the 44px SUV.
+- Open driving lanes with tire ruts, dust trails, and zero road collision obstacles.
+- Connecting avenues at the west gate entrance and eastern terminus.
 
-**Controls**
+### 3. Parked Blue SUV in Bay #42
+- Parked securely inside Garage Bay #42 in Row 1.
+- Front bumper peeks out ~5px into the doorway threshold lip.
+- Zero collision overlap with the dirt road driving lane — the red truck can cruise past without hitting it.
+
+### 4. Community Oil Tank & Truck Deposit Pad
+- Giant industrial cylindrical storage tank located at the eastern end of the garage yard.
+- High-visibility concrete deposit pad directly in front of the tank with animated hazard chevron borders.
+- **Automatic Deposit:** Driving the truck onto the pad unloads collected oil cans, pumps them into the community oil tank, awards DRB caller bounty, expands the Drop Vault pool, and fires hydraulic fanfare audio and particles.
+
+### 5. 3-Second Global Cooldown on Gear Vault
+- Smart contract: `contracts/GearVault.sol` (`GLOBAL_COOLDOWN = 3 seconds`).
+- Escrow check: `contracts/ByteFetchEscrow.sol` enforced at 3.0s.
+- Game HUD & test rig: Live telemetry and cooldown countdown for tool claims.
+
+---
+
+## Controls
 
 | Input | Action |
-|--------|--------|
-| WASD / Arrow keys | Move CAP |
-| Walk over yellow **DRB** cans | Pick up (HUD inventory, cap **10**) |
-| **E** near red SUV | Deposit cans, or pump `fillOil` if tank has cans |
-| **F** near **BYTE** the dog | Claim mock BYTE fetch |
-| **R** near SUV | Repair (needs ≥1 GEAR) / Drive |
-| Touch-drag on canvas | Virtual stick (mobile) |
-| Header buttons | Same actions without hotkeys |
-
-**Loop**
-
-1. Roam the street, collect up to **10 cans** (local HUD only).
-2. Deposit at the red SUV → unlocks the in-game **Pump** button.
-3. **Pump fillOil** → mock public call: global ~10s cooldown, fixed **1 DRB** caller bounty, rest to Drop Vault. Cans never enter calldata.
-4. Meet **BYTE** → connect mock wallet → claim **1 GEAR / 60s** until escrow empty; empty = animation only.
-5. Hold ≥1 **GEAR** (read, not spend) → **Repair** then **Drive** the SUV.
-6. Chain-link **Junkyard gate** is locked: *coming in update* (500-door maze **not** shipped in beta).
+|-------|--------|
+| **WASD / Arrow keys** | Steer truck / walk driver |
+| **Drive over yellow cans** | Pick up oil cans (inventory cap 10) |
+| **Drive onto Oil Tank Pad** | Auto-deposit cans into community tank & earn DRB |
+| **E / Space** | Proximity action (inspect Blue SUV, toggle truck, claim tools) |
+| **Test Rig Buttons** | Instant can packing, 3s gear vault claim, pad warp, blue SUV warp |
+| **Mobile Touch** | On-screen D-Pad and Action button |
 
 ---
 
-## Canonical Lock (beta — do not invent)
+## Smart Contracts
 
-- **Cans HUD only**, cap 10, never calldata.
-- **`fillOil()` public**, no amount, global ~10s cooldown, fixed 1 DRB bounty, rest vault; keepers allowed; no per-wallet fill cooldown in beta.
-- **BYTE dust** → 1 GEAR / 60s player-signed until escrow empty; empty = animation only.
-- **Drive ≥1 GEAR** (balance read, not spend).
-- **Junkyard progression deferred** — locked gate UI only.
-
-Full lock + contracts: root [README.md](../README.md) and dossier [index.html](../index.html).
-
----
-
-## Mock vs future wire
-
-| Layer | Now (BETA) | Later (Bankr) |
-|--------|------------|----------------|
-| Wallet | `js/chain/mockProvider.js` auto-connects a fake address | Real wallet on Base 8453 |
-| `fillOil` | Local cooldown + mock bounty | `OilEscrow.fillOil()` — **no args** |
-| BYTE fetch | Mock escrow GEAR + 60s CD | BYTE Fetch Escrow `claimTool` (confirm name) |
-| Balances | In-memory GEAR / BYTE / DRB | ERC-20 `balanceOf` reads |
-| Live stub | `js/chain/liveProvider.js` TODO hooks | Set `USE_LIVE = true` in `main.js` |
-
-Cans stay client-side forever for the pump UX. Keepers may call the same on-chain `fillOil()` with zero cans.
-
----
-
-## Junkyard deferred
-
-The fence gate shows **LOCKED — COMING IN UPDATE**. Do not expect an enterable 500-door maze in this beta. Drive still works on the street when you hold GEAR; gate access (100 GEAR read) is future content.
-
----
-
-## Deploy notes
-
-- **Arcade only:** point Vercel Root Directory to `game/`.
-- **Dossier + game:** keep Vercel root at repo root; dossier at `/`, game at `/game/`.
-- Do not commit `node_modules/` or `.vercel/`.
-
-Gear home footer → [https://landonthis.gearup.wtf](https://landonthis.gearup.wtf)
+1. **`GearVault.sol`**: Manages GEAR tools with 3-second global cooldown (`GLOBAL_COOLDOWN = 3 seconds`) and per-wallet cooldown.
+2. **`ByteFetchEscrow.sol`**: Dispenses GEAR to BYTE holders with 3s global cooldown and 60s per-wallet cooldown.
+3. **`OilEscrow.sol`**: Public zero-argument `fillOil()` keeper tap with 10s cooldown and 90/10 split.
+4. **`DropVault.sol`**: Community pull-claim vault with 3 lifecycle windows (holder, scavenger, dust sweep).
+5. **`GateRegistry.sol`**: Dynamic admin NFT gatekeeping registry.
