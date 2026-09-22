@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>CAPs Garage — Street Arcade BETA (500-Bay Yard)</title>
-  <meta name="description" content="CAPs Garage street arcade beta: street vs parking-lot zoning, west gate-only entry, bottom garage wall + south street, teal blockers + bay-500 pile (right of 500), yard-edge right fence, oil yard, blue SUV #42, 3s gear vault." />
+  <meta name="description" content="CAPs Garage street arcade beta: gear-door bays, fence-jump ramps, touch-on-sprite drive, street/lot zoning, teal blockers, oil yard, blue SUV #42, 3s gear vault." />
   <meta name="theme-color" content="#0b0e14" />
   <style>
     :root {
@@ -305,47 +305,17 @@
       border-color: var(--accent-gear);
     }
 
-    /* Mobile Controls */
+    /* Mobile Controls — D-pad hidden; touch-on-sprite drive + ACTION button */
     #touch-controls {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      width: 120px;
-      height: 120px;
-      z-index: 25;
-      display: none;
+      display: none !important;
     }
-
-    .dpad-btn {
-      position: absolute;
-      width: 38px;
-      height: 38px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-weight: 800;
-      font-size: 16px;
-    }
-
-    .dpad-btn:active {
-      background: rgba(245, 158, 11, 0.4);
-    }
-
-    .dpad-up { top: 0; left: 41px; }
-    .dpad-down { bottom: 0; left: 41px; }
-    .dpad-left { top: 41px; left: 0; }
-    .dpad-right { top: 41px; right: 0; }
 
     #touch-action {
       position: absolute;
       bottom: 25px;
-      right: 240px;
-      width: 60px;
-      height: 60px;
+      right: 20px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
       background: rgba(245, 158, 11, 0.2);
       border: 2px solid var(--accent-oil);
@@ -357,12 +327,17 @@
       justify-content: center;
       text-align: center;
       z-index: 25;
+      touch-action: manipulation;
     }
 
     @media (pointer: coarse), (max-width: 768px) {
-      #touch-controls, #touch-action { display: flex; }
-      #radar-panel { bottom: 140px; right: 10px; width: 160px; height: 90px; }
-      #test-bench { top: auto; bottom: 235px; right: 10px; }
+      #touch-action { display: flex; }
+      #radar-panel { bottom: 100px; right: 10px; width: 160px; height: 90px; }
+      #test-bench { top: auto; bottom: 180px; right: 10px; }
+    }
+
+    #game-canvas {
+      touch-action: none;
     }
   </style>
 </head>
@@ -383,7 +358,7 @@
           <span>🛢️ DRB:</span> <strong id="hud-drb">0</strong>
         </div>
         <div class="stat-pill gear" id="pill-gear" title="GEAR tools in backpack">
-          <span>⚙️ GEAR:</span> <strong id="hud-gear">1</strong>
+          <span>⚙️ GEAR:</span> <strong id="hud-gear">5</strong>
         </div>
         <div class="stat-pill cooldown" id="pill-vault" title="Gear Vault Global Cooldown (3 seconds)">
           <span>⏱️ Vault CD:</span> <strong id="hud-vault-cd">Ready (3s)</strong>
@@ -414,7 +389,7 @@
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
 
-    <div id="toast">Street → Gate → Lot (west walls seal except gate). Bottom wall seals garage from south street. Bay-500 teal pile sits right of 500. Right fence along yard — not across south street.</div>
+    <div id="toast">Gear doors (walk+E), fence-jump ramps (truck), touch-drag on truck/walker. Street → Gate → Lot. Layout fences/walls unchanged.</div>
 
     <div id="action-prompt" onclick="triggerCurrentAction()">
       <span class="key-pill" id="action-key">E</span>
@@ -464,13 +439,8 @@
       </div>
     </div>
 
-    <!-- Mobile Touch -->
-    <div id="touch-controls">
-      <div class="dpad-btn dpad-up" data-dir="up">▲</div>
-      <div class="dpad-btn dpad-down" data-dir="down">▼</div>
-      <div class="dpad-btn dpad-left" data-dir="left">◀</div>
-      <div class="dpad-btn dpad-right" data-dir="right">▶</div>
-    </div>
+    <!-- Mobile: ACTION only (D-pad removed — touch-drag on sprite/truck) -->
+    <div id="touch-controls" aria-hidden="true" style="display:none"></div>
     <div id="touch-action" onclick="triggerCurrentAction()">ACTION<br>(E)</div>
   </div>
 
@@ -533,13 +503,24 @@
       cans: 0,
       maxCans: 10,
       drb: 0,
-      gear: 1,
+      gear: 5, // held GEAR — start with 5 for door playtest; vault still grants more
       inTruck: true, // start driving the truck
       gearVaultCooldown: 0, // 3-second global cooldown on gear vault
       oilTankCooldown: 0, // 2-second pad trigger debouncer
       vaultPool: 450000,
       currentAction: null,
-      keys: { up: false, down: false, left: false, right: false }
+      currentDoor: null, // nearest bay for gear-door interact
+      keys: { up: false, down: false, left: false, right: false },
+      touchDrive: {
+        active: false,
+        pointerId: null,
+        startSX: 0,
+        startSY: 0,
+        curSX: 0,
+        curSY: 0,
+        moved: false
+      },
+      rampCooldown: 0
     };
 
     // --- Canvas & Radar Setup ---
@@ -606,7 +587,7 @@
           y: rows[r].garageY,
           w: garageW - 4, // 50px wide garage bay with 4px wall gap
           h: garageH,
-          doorOpen: (id === 42) // Bay #42 is open for the Blue SUV!
+          doorOpen: false // all bays start CLOSED — Cap gears them open (incl. #42)
         });
       }
     }
@@ -813,11 +794,54 @@
       { x: gate.x, y: westGateBot, w: westFrontWallT, h: Math.max(0, westFrontSouthY - westGateBot), tag: 'west-front-s' }
     ];
 
-    // Combined solid barriers (truck + walk): bottom wall + right-side fence + west front walls
+    // --- Top street (north of yard) + north yard fence (jump target for ramps) ---
+    const northFence = {
+      x: gate.x,
+      y: (yardStartY - 50) - 12, // just above parking apron / streetTop
+      w: rightSealRight - gate.x,
+      h: 12,
+      tag: 'north-yard-fence'
+    };
+    const topStreet = {
+      x: 0,
+      y: 24,
+      w: world.width,
+      h: Math.max(40, northFence.y - 24)
+    };
+
+    // Combined solid barriers (truck + walk): bottom + right fence + west front + north fence
     const solidBarriers = [
       { x: bottomWall.x, y: bottomWall.y, w: bottomWall.w, h: bottomWall.h, tag: bottomWall.tag },
       ...rightFenceSegs,
-      ...westFrontWallSegs
+      ...westFrontWallSegs,
+      { x: northFence.x, y: northFence.y, w: northFence.w, h: northFence.h, tag: northFence.tag }
+    ];
+
+    // --- Fence-jump ramps (red SUV / inTruck only) ---
+    // A) Right side of yard near east / before right fence
+    // B) East end of Road 1 (second E–W dirt corridor; Road 0 = under 1–100)
+    const jumpLandY = topStreet.y + topStreet.h * 0.55;
+    const ramps = [
+      {
+        id: 'yard-right',
+        x: rightSealX - 78,
+        y: yardStartY - 36,
+        w: 56,
+        h: 44,
+        landX: rightSealX - 40,
+        landY: jumpLandY,
+        label: 'RAMP → TOP'
+      },
+      {
+        id: 'road1-east',
+        x: yardEndX - 52,
+        y: rows[1].roadY + 14,
+        w: 58,
+        h: 48,
+        landX: yardEndX - 20,
+        landY: jumpLandY,
+        label: 'RAMP → TOP'
+      }
     ];
 
     // Player Truck
@@ -829,7 +853,8 @@
       w: 58,
       h: 34,
       heading: 0,
-      trail: []
+      trail: [],
+      jump: null // { t, dur, x0,y0,x1,y1 }
     };
 
     // Oil Cans scattered down the dirt roads
@@ -883,15 +908,90 @@
       if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') state.keys.right = false;
     });
 
-    document.querySelectorAll('.dpad-btn').forEach(btn => {
-      const dir = btn.getAttribute('data-dir');
-      btn.addEventListener('touchstart', e => { e.preventDefault(); state.keys[dir] = true; });
-      btn.addEventListener('touchend', e => { e.preventDefault(); state.keys[dir] = false; });
-      btn.addEventListener('mousedown', () => { state.keys[dir] = true; });
-      btn.addEventListener('mouseup', () => { state.keys[dir] = false; });
+    // Screen → world (camera centered on player)
+    function screenToWorld(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = clientX - rect.left;
+      const sy = clientY - rect.top;
+      return {
+        x: sx - width / 2 + player.x,
+        y: sy - height / 2 + player.y,
+        sx, sy
+      };
+    }
+
+    function touchHitRadius() {
+      return state.inTruck ? 48 : 28;
+    }
+
+    function endTouchDrive(pointerId) {
+      const td = state.touchDrive;
+      if (!td.active) return;
+      if (pointerId != null && td.pointerId != null && pointerId !== td.pointerId) return;
+      td.active = false;
+      td.pointerId = null;
+      td.moved = false;
+    }
+
+    // Touch-on-object drive (primary mobile). Small move threshold so desktop
+    // click-inspect / UI clicks are not stolen as drive gestures.
+    canvas.addEventListener('pointerdown', e => {
+      if (e.button != null && e.button !== 0) return;
+      const wpt = screenToWorld(e.clientX, e.clientY);
+      if (Math.hypot(wpt.x - player.x, wpt.y - player.y) > touchHitRadius()) return;
+      const td = state.touchDrive;
+      td.active = true;
+      td.pointerId = e.pointerId;
+      td.startSX = wpt.sx;
+      td.startSY = wpt.sy;
+      td.curSX = wpt.sx;
+      td.curSY = wpt.sy;
+      td.moved = false;
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
     });
 
+    canvas.addEventListener('pointermove', e => {
+      const td = state.touchDrive;
+      if (!td.active || e.pointerId !== td.pointerId) return;
+      const rect = canvas.getBoundingClientRect();
+      td.curSX = e.clientX - rect.left;
+      td.curSY = e.clientY - rect.top;
+      if (Math.hypot(td.curSX - td.startSX, td.curSY - td.startSY) > 10) td.moved = true;
+      e.preventDefault();
+    });
+
+    function onPointerEnd(e) { endTouchDrive(e.pointerId); }
+    canvas.addEventListener('pointerup', onPointerEnd);
+    canvas.addEventListener('pointercancel', onPointerEnd);
+    canvas.addEventListener('lostpointercapture', e => endTouchDrive(e.pointerId));
+
     // --- Actions ---
+    function toggleGarageDoor(g) {
+      if (state.inTruck) {
+        showToast('Hop out to use a GEAR on bay doors.');
+        playTone(220, 'sawtooth', 0.12);
+        return;
+      }
+      if (!g) return;
+      if (state.gear < 1) {
+        showToast('⚙️ Need a GEAR to open/close this door.');
+        playTone(200, 'sawtooth', 0.15);
+        return;
+      }
+      state.gear -= 1;
+      g.doorOpen = !g.doorOpen;
+      updateHUD();
+      if (g.doorOpen) {
+        playTone(640, 'square', 0.12);
+        setTimeout(() => playTone(820, 'triangle', 0.1), 60);
+        showToast(`⚙️ Bay #${g.id} OPEN (−1 GEAR). Truck & walk can pass.`);
+      } else {
+        playTone(320, 'sawtooth', 0.14);
+        showToast(`⚙️ Bay #${g.id} CLOSED (−1 GEAR).`);
+      }
+    }
+
     function triggerCurrentAction() {
       if (state.currentAction === 'inspect_blue_suv') {
         showToast("Not broke, just unused...");
@@ -899,10 +999,69 @@
       } else if (state.currentAction === 'inspect_green_suv') {
         showToast("broke down, dont even try...");
         playTone(180, 'sawtooth', 0.18);
+      } else if (state.currentAction === 'gear_door') {
+        toggleGarageDoor(state.currentDoor);
       } else if (state.currentAction === 'claim_gear_vault') {
         testClaimGearVault();
       } else if (state.currentAction === 'toggle_truck') {
         testToggleTruck();
+      }
+    }
+
+    function findNearestDoor(maxDist) {
+      let best = null;
+      let bestD = maxDist;
+      for (let i = 0; i < garages.length; i++) {
+        const g = garages[i];
+        const doorCx = g.x + g.w / 2;
+        const doorCy = g.y + g.h; // south lip facing dirt road
+        if (Math.abs(player.x - doorCx) > maxDist + 20) continue;
+        if (Math.abs(player.y - doorCy) > maxDist + 20) continue;
+        const d = Math.hypot(player.x - doorCx, player.y - doorCy);
+        if (d < bestD) { bestD = d; best = g; }
+      }
+      return best;
+    }
+
+    function garageBlocksAt(nx, ny, halfW, halfH) {
+      // Per-bay: closed door = solid; open door = passable corridor
+      const pad = 2;
+      for (let i = 0; i < garageRows; i++) {
+        const r = rows[i];
+        if (ny + halfH < r.garageY - pad || ny - halfH > r.garageY + garageH + pad) continue;
+        if (nx + halfW < yardStartX - pad || nx - halfW > yardEndX + pad) continue;
+        const colStart = Math.max(0, Math.floor((nx - halfW - yardStartX) / garageW) - 1);
+        const colEnd = Math.min(garagesPerRow - 1, Math.floor((nx + halfW - yardStartX) / garageW) + 1);
+        for (let c = colStart; c <= colEnd; c++) {
+          const g = garages[i * garagesPerRow + c];
+          if (!g) continue;
+          if (nx + halfW > g.x && nx - halfW < g.x + g.w &&
+              ny + halfH > g.y && ny - halfH < g.y + g.h) {
+            if (!g.doorOpen) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function startRampJump(ramp) {
+      if (!state.inTruck || player.jump || state.rampCooldown > 0) return;
+      player.jump = {
+        t: 0, dur: 0.55,
+        x0: player.x, y0: player.y,
+        x1: ramp.landX, y1: ramp.landY
+      };
+      state.rampCooldown = 1.2;
+      playTone(280, 'sawtooth', 0.08);
+      setTimeout(() => playTone(520, 'triangle', 0.12), 80);
+      showToast('🛻 Fence jump! Landed on TOP STREET.');
+      for (let p = 0; p < 14; p++) {
+        particles.push({
+          x: player.x, y: player.y,
+          vx: (Math.random() - 0.5) * 160,
+          vy: -Math.random() * 140 - 40,
+          alpha: 1, color: '#94a3b8'
+        });
       }
     }
 
@@ -975,101 +1134,144 @@
         depositPad.activeTimer -= dt;
       }
 
-      // Movement
-      let dx = 0;
-      let dy = 0;
-      if (state.keys.up) dy -= 1;
-      if (state.keys.down) dy += 1;
-      if (state.keys.left) dx -= 1;
-      if (state.keys.right) dx += 1;
+      if (state.rampCooldown > 0) {
+        state.rampCooldown -= dt;
+        if (state.rampCooldown < 0) state.rampCooldown = 0;
+      }
 
-      if (dx !== 0 || dy !== 0) {
-        const len = Math.hypot(dx, dy);
-        dx /= len;
-        dy /= len;
+      // Movement — keyboard + touch-on-sprite; fence-jump arc ignores collision
+      if (player.jump) {
+        const j = player.jump;
+        j.t += dt;
+        const u = Math.min(1, j.t / j.dur);
+        const ease = u * u * (3 - 2 * u);
+        player.x = j.x0 + (j.x1 - j.x0) * ease;
+        player.y = j.y0 + (j.y1 - j.y0) * ease - Math.sin(Math.PI * u) * 70;
+        player.heading = -Math.PI / 2;
+        if (u >= 1) {
+          player.x = j.x1;
+          player.y = j.y1;
+          player.jump = null;
+        }
+      } else {
+        let dx = 0;
+        let dy = 0;
+        let usingTouch = false;
 
-        const spd = state.inTruck ? player.truckSpeed : player.speed;
-        const nextX = player.x + dx * spd;
-        const nextY = player.y + dy * spd;
-
-        // Collision check with closed garages
-        let blocked = false;
-        for (let i = 0; i < garageRows; i++) {
-          const r = rows[i];
-          if (nextX >= yardStartX && nextX <= yardEndX && nextY >= r.garageY && nextY <= r.garageY + garageH - 6) {
-            if (Math.abs(nextX - (blueBay.x + blueBay.w / 2)) < 18 && i === 0) {
-              // Can inspect blue bay up to threshold
-            } else {
-              blocked = true;
-            }
+        const td = state.touchDrive;
+        if (td.active && td.moved) {
+          usingTouch = true;
+          const dragX = td.curSX - td.startSX;
+          const dragY = td.curSY - td.startSY;
+          const mag = Math.hypot(dragX, dragY);
+          if (mag >= 14) {
+            const nx = dragX / mag;
+            const ny = dragY / mag;
+            const fwdX = Math.cos(player.heading);
+            const fwdY = Math.sin(player.heading);
+            const along = nx * fwdX + ny * fwdY;
+            const side = nx * (-fwdY) + ny * fwdX;
+            const turnRate = state.inTruck ? 3.4 : 4.2;
+            player.heading += side * turnRate * dt;
+            const base = state.inTruck ? player.truckSpeed : player.speed;
+            let thrust = 0;
+            if (along > 0.12) thrust = base * Math.min(1, along);
+            else if (along < -0.12) thrust = base * 0.25 * Math.max(-1, along); // reverse 1/4
+            dx = Math.cos(player.heading) * thrust;
+            dy = Math.sin(player.heading) * thrust;
           }
         }
 
-        // Player AABB: truck uses near-full body (sized vs blocker width); walk uses narrow hitbox
-        const halfW = state.inTruck ? player.w * 0.48 : 5;
-        const halfH = state.inTruck ? player.h * 0.48 : 5;
+        if (!usingTouch) {
+          if (state.keys.up) dy -= 1;
+          if (state.keys.down) dy += 1;
+          if (state.keys.left) dx -= 1;
+          if (state.keys.right) dx += 1;
+          if (dx !== 0 || dy !== 0) {
+            const len = Math.hypot(dx, dy);
+            const spd = state.inTruck ? player.truckSpeed : player.speed;
+            dx = (dx / len) * spd;
+            dy = (dy / len) * spd;
+            player.heading = Math.atan2(dy, dx);
+          }
+        }
 
-        // Green road blockers: HARD-block vehicle/truck; walk may squeeze south-edge lane
-        if (!blocked) {
-          for (let gi = 0; gi < greenSUVs.length; gi++) {
-            const s = greenSUVs[gi];
-            if (state.inTruck && !s.blockVehicle) continue;
-            if (!state.inTruck && s.blockWalk === false) {
-              // Cap rule: allow walk — still test narrow AABB so body isn't free-clip through center
-              // (south-edge gap is the intended squeeze path)
+        if (dx !== 0 || dy !== 0) {
+          const nextX = player.x + dx;
+          const nextY = player.y + dy;
+          let blocked = false;
+          const halfW = state.inTruck ? player.w * 0.48 : 5;
+          const halfH = state.inTruck ? player.h * 0.48 : 5;
+
+          if (garageBlocksAt(nextX, nextY, halfW, halfH)) blocked = true;
+
+          // Green road blockers: HARD-block truck; walk may squeeze south-edge lane
+          if (!blocked) {
+            for (let gi = 0; gi < greenSUVs.length; gi++) {
+              const s = greenSUVs[gi];
+              if (state.inTruck && !s.blockVehicle) continue;
+              const left = s.x - s.length / 2;
+              const right = s.x + s.length / 2;
+              const top = s.y - s.w / 2;
+              const bottom = s.y + s.w / 2;
+              if (nextX + halfW > left && nextX - halfW < right &&
+                  nextY + halfH > top && nextY - halfH < bottom) {
+                blocked = true;
+                break;
+              }
             }
-            const left = s.x - s.length / 2;
-            const right = s.x + s.length / 2;
-            const top = s.y - s.w / 2;
-            const bottom = s.y + s.w / 2;
-            if (nextX + halfW > left && nextX - halfW < right &&
-                nextY + halfH > top && nextY - halfH < bottom) {
-              blocked = true;
+          }
+
+          // Oil-tank yard fence: impassable for BOTH modes
+          if (!blocked) {
+            for (let fi = 0; fi < oilFenceSegs.length; fi++) {
+              const f = oilFenceSegs[fi];
+              if (nextX + halfW > f.x && nextX - halfW < f.x + f.w &&
+                  nextY + halfH > f.y && nextY - halfH < f.y + f.h) {
+                blocked = true;
+                break;
+              }
+            }
+          }
+
+          // Bottom wall + right fence + west front + north fence
+          if (!blocked) {
+            for (let bi = 0; bi < solidBarriers.length; bi++) {
+              const b = solidBarriers[bi];
+              if (nextX + halfW > b.x && nextX - halfW < b.x + b.w &&
+                  nextY + halfH > b.y && nextY - halfH < b.y + b.h) {
+                blocked = true;
+                break;
+              }
+            }
+          }
+
+          if (!blocked) {
+            player.x = Math.max(40, Math.min(world.width - 40, nextX));
+            player.y = Math.max(30, Math.min(world.height - 40, nextY));
+          }
+
+          if (state.inTruck && Math.random() < 0.3) {
+            player.trail.push({
+              x: player.x - Math.cos(player.heading) * 20 + (Math.random() * 8 - 4),
+              y: player.y - Math.sin(player.heading) * 20 + (Math.random() * 8 - 4),
+              alpha: 0.6,
+              size: Math.random() * 6 + 4
+            });
+            if (player.trail.length > 40) player.trail.shift();
+          }
+        }
+
+        // Ramp triggers — truck only; walk can stand without launch
+        if (state.inTruck && state.rampCooldown <= 0) {
+          for (let ri = 0; ri < ramps.length; ri++) {
+            const ramp = ramps[ri];
+            if (player.x > ramp.x && player.x < ramp.x + ramp.w &&
+                player.y > ramp.y && player.y < ramp.y + ramp.h) {
+              startRampJump(ramp);
               break;
             }
           }
-        }
-
-        // Oil-tank yard fence: impassable for BOTH truck and walking character
-        if (!blocked) {
-          for (let fi = 0; fi < oilFenceSegs.length; fi++) {
-            const f = oilFenceSegs[fi];
-            if (nextX + halfW > f.x && nextX - halfW < f.x + f.w &&
-                nextY + halfH > f.y && nextY - halfH < f.y + f.h) {
-              blocked = true;
-              break;
-            }
-          }
-        }
-
-        // Bottom garage wall + right-side fence + west front walls: impassable for BOTH modes
-        if (!blocked) {
-          for (let bi = 0; bi < solidBarriers.length; bi++) {
-            const b = solidBarriers[bi];
-            if (nextX + halfW > b.x && nextX - halfW < b.x + b.w &&
-                nextY + halfH > b.y && nextY - halfH < b.y + b.h) {
-              blocked = true;
-              break;
-            }
-          }
-        }
-
-        if (!blocked) {
-          player.x = Math.max(50, Math.min(world.width - 50, nextX));
-          player.y = Math.max(50, Math.min(world.height - 50, nextY));
-        }
-
-        player.heading = Math.atan2(dy, dx);
-
-        // Dust trails
-        if (state.inTruck && Math.random() < 0.3) {
-          player.trail.push({
-            x: player.x - Math.cos(player.heading) * 20 + (Math.random() * 8 - 4),
-            y: player.y - Math.sin(player.heading) * 20 + (Math.random() * 8 - 4),
-            alpha: 0.6,
-            size: Math.random() * 6 + 4
-          });
-          if (player.trail.length > 40) player.trail.shift();
         }
       }
 
@@ -1143,6 +1345,9 @@
       const promptEl = document.getElementById('action-prompt');
       const actionTextEl = document.getElementById('action-text');
 
+      const nearDoor = findNearestDoor(42);
+      state.currentDoor = nearDoor;
+
       if (distToBlue < 65) {
         state.currentAction = 'inspect_blue_suv';
         promptEl.style.display = 'flex';
@@ -1151,6 +1356,15 @@
         state.currentAction = 'inspect_green_suv';
         promptEl.style.display = 'flex';
         actionTextEl.innerText = 'Inspect broken teal SUV (E)';
+      } else if (nearDoor && !state.inTruck) {
+        state.currentAction = 'gear_door';
+        promptEl.style.display = 'flex';
+        const verb = nearDoor.doorOpen ? 'Close' : 'Open';
+        actionTextEl.innerText = `${verb} Bay #${nearDoor.id} door (E · 1 GEAR)`;
+      } else if (nearDoor && state.inTruck) {
+        state.currentAction = null;
+        promptEl.style.display = 'flex';
+        actionTextEl.innerText = `Bay #${nearDoor.id} door — hop out + GEAR to toggle`;
       } else if (onPad && state.cans === 0) {
         state.currentAction = null;
         promptEl.style.display = 'flex';
@@ -1177,6 +1391,47 @@
       // Terrain Base
       ctx.fillStyle = '#12151a';
       ctx.fillRect(0, 0, world.width, world.height);
+
+      // === TOP STREET (north of north yard fence) ===
+      ctx.fillStyle = '#2a3038';
+      ctx.fillRect(topStreet.x, topStreet.y, topStreet.w, topStreet.h);
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([18, 14]);
+      ctx.beginPath();
+      ctx.moveTo(40, topStreet.y + topStreet.h / 2);
+      ctx.lineTo(world.width - 40, topStreet.y + topStreet.h / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(topStreet.x, topStreet.y, topStreet.w, 6);
+      ctx.fillRect(topStreet.x, topStreet.y + topStreet.h - 6, topStreet.w, 6);
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.4)';
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('TOP STREET', yardStartX + 40, topStreet.y + topStreet.h / 2 + 8);
+
+      // North yard fence (visual + already in solidBarriers)
+      ctx.fillStyle = '#5b4636';
+      ctx.fillRect(northFence.x, northFence.y, northFence.w, northFence.h);
+      ctx.fillStyle = '#3f3228';
+      ctx.fillRect(northFence.x + 1, northFence.y + 1, Math.max(0, northFence.w - 2), Math.max(0, northFence.h - 2));
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < northFence.w; i += 8) {
+        ctx.beginPath();
+        ctx.moveTo(northFence.x + i, northFence.y);
+        ctx.lineTo(northFence.x + i + northFence.h, northFence.y + northFence.h);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#8b5a2b';
+      ctx.fillRect(northFence.x, northFence.y, northFence.w, 3);
+      ctx.fillStyle = '#a16207';
+      ctx.fillRect(northFence.x, northFence.y + northFence.h - 3, northFence.w, 3);
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.75)';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('NORTH FENCE — RAMP JUMP ONLY', northFence.x + northFence.w * 0.35, northFence.y - 6);
 
       // === STREET zone (west of gate, outside yard) ===
       const streetTop = yardStartY - 50;
@@ -1349,6 +1604,9 @@
         ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
         ctx.fill();
       });
+
+      // Fence-jump ramps
+      for (let ri = 0; ri < ramps.length; ri++) renderRamp(ramps[ri]);
 
       // Player
       if (state.inTruck) {
@@ -1887,6 +2145,43 @@
       ctx.fillRect(tank.x + tank.radius - 15, tank.y + 40 - 55, 6, 55);
 
       ctx.restore();
+    }
+
+    function renderRamp(ramp) {
+      const x = ramp.x, y = ramp.y, w = ramp.w, h = ramp.h;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2 + 3, y + h - 2, w / 2 + 4, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Wedge: low south → high north
+      ctx.fillStyle = '#78716c';
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + w - 6, y + 8);
+      ctx.lineTo(x + 6, y + 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#a8a29e';
+      ctx.beginPath();
+      ctx.moveTo(x + 6, y + 8);
+      ctx.lineTo(x + w - 6, y + 8);
+      ctx.lineTo(x + w - 10, y);
+      ctx.lineTo(x + 10, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#eab308';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(x + 12 + i * 2, y + h - 10 - i * 10, w - 24 - i * 4, 5);
+      }
+      ctx.fillStyle = '#0f172a';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(x + 12 + i * 2, y + h - 5 - i * 10, w - 24 - i * 4, 5);
+      }
+      ctx.fillStyle = '#fef08a';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(ramp.label, x + w / 2, y - 4);
     }
 
     function renderRedTruck(x, y, angle) {
