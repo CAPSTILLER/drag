@@ -389,7 +389,7 @@
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
 
-    <div id="toast">Gear doors (walk+E), fence-jump ramps (truck), touch-drag on truck/walker. Street → Gate → Lot. Layout fences/walls unchanged.</div>
+    <div id="toast">Gear doors (walk+E), ramps #100→restricted→top street, touch-drag drive. Street → bottom-road Gate → Lot.</div>
 
     <div id="action-prompt" onclick="triggerCurrentAction()">
       <span class="key-pill" id="action-key">E</span>
@@ -633,9 +633,10 @@
     }
 
     // Full Cap allowlist — one pair of blockers per corridor (single SUV mid-road).
+    // Cap: no green under #100 (ramp replaces 100↔200); no greens on bottom dirt road (Road 4).
     const greenPairIds = [
       [1, 101], [110, 210], [230, 330], [344, 444], [262, 362],
-      [63, 163], [84, 184], [395, 495], [100, 200], [400, 300]
+      [63, 163], [84, 184], [395, 495], [400, 300]
     ];
 
     const greenSUVs = [];
@@ -658,7 +659,10 @@
       const b = bayById(idB);
       if (!a || !b) return;
       // Bias slightly north so the south edge of the road is the walk squeeze lane
-      pushGreen(midXBetween(a, b), roadYBetween(a, b) - 6, idA + '-' + idB);
+      const gy = roadYBetween(a, b) - 6;
+      // Strict: never place corridor greens on bottom dirt road (Road 4 under 401–500)
+      if (gy >= rows[4].roadY && gy <= rows[4].roadY + dirtRoadH) return;
+      pushGreen(midXBetween(a, b), gy, idA + '-' + idB);
     });
 
     // --- Oil Tank & Deposit Pad at the end of the garage yard ---
@@ -783,12 +787,13 @@
     // Close fence/wall gaps north & south of the gate on the yard west face so drive/walk
     // cannot slip into the parking lot from the west STREET except via the gate opening.
     const westFrontWallT = 12;
-    const westGateGap = 110;
-    const westGateCy = rows[1].roadY + dirtRoadH / 2; // Road 1 — player start / gate mid
+    // Gate opening = bottom dirt road (Road 4) band only — walls seal every other west entry
     const westFrontNorthY = yardStartY - 50; // match streetTop / north apron
     const westFrontSouthY = bottomWall.y + bottomWall.h; // end of south wall / yard edge
-    const westGateTop = westGateCy - westGateGap / 2;
-    const westGateBot = westGateCy + westGateGap / 2;
+    const westGateTop = rows[4].roadY;
+    const westGateBot = Math.min(rows[4].roadY + dirtRoadH, westFrontSouthY);
+    const westGateCy = (westGateTop + westGateBot) / 2;
+    const westGateGap = westGateBot - westGateTop;
     const westFrontWallSegs = [
       { x: gate.x, y: westFrontNorthY, w: westFrontWallT, h: Math.max(0, westGateTop - westFrontNorthY), tag: 'west-front-n' },
       { x: gate.x, y: westGateBot, w: westFrontWallT, h: Math.max(0, westFrontSouthY - westGateBot), tag: 'west-front-s' }
@@ -818,36 +823,44 @@
     ];
 
     // --- Fence-jump ramps (red SUV / inTruck only) ---
-    // A) Right side of yard near east / before right fence
-    // B) East end of Road 1 (second E–W dirt corridor; Road 0 = under 1–100)
+    // Loop: Road 0 under #100 → restricted east yard → return ramp → TOP STREET
+    // (removed old yard-right + Road-1/#200 east ramps)
     const jumpLandY = topStreet.y + topStreet.h * 0.55;
+    const bay100Ramp = bayById(100);
+    const ramp100Cx = bay100Ramp ? (bay100Ramp.x + bay100Ramp.w / 2) : (yardEndX - 29);
     const ramps = [
       {
-        id: 'yard-right',
-        x: rightSealX - 78,
-        y: yardStartY - 36,
-        w: 56,
-        h: 44,
-        landX: rightSealX - 40,
-        landY: jumpLandY,
-        label: 'RAMP → TOP'
-      },
-      {
-        id: 'road1-east',
-        x: yardEndX - 52,
-        y: rows[1].roadY + 14,
+        // Under garage #100 (Road 0) — faces EAST into right-side restricted yard
+        id: 'bay100-east',
+        x: ramp100Cx - 29,
+        y: rows[0].roadY + 14,
         w: 58,
         h: 48,
-        landX: yardEndX - 20,
+        face: 'east',
+        landX: rightSealX + 110,
+        landY: rows[0].roadY + dirtRoadH / 2,
+        label: 'RAMP → RESTRICTED',
+        landToast: '🛻 Fence jump! Into the RESTRICTED YARD.'
+      },
+      {
+        // Inside restricted east yard — faces NORTH onto TOP STREET
+        id: 'restricted-north',
+        x: rightSealX + 72,
+        y: yardStartY - 40,
+        w: 56,
+        h: 44,
+        face: 'north',
+        landX: rightSealX + 100,
         landY: jumpLandY,
-        label: 'RAMP → TOP'
+        label: 'RAMP → TOP',
+        landToast: '🛻 Fence jump! Landed on TOP STREET.'
       }
     ];
 
     // Player Truck
     const player = {
       x: yardStartX - 100,
-      y: rows[1].roadY + dirtRoadH / 2, // start on Dirt Road 1
+      y: rows[4].roadY + dirtRoadH / 2, // start on bottom Dirt Road 4 (gate)
       speed: 3.5,
       truckSpeed: 6.8,
       w: 58,
@@ -1046,15 +1059,17 @@
 
     function startRampJump(ramp) {
       if (!state.inTruck || player.jump || state.rampCooldown > 0) return;
+      const face = ramp.face || 'north';
       player.jump = {
         t: 0, dur: 0.55,
         x0: player.x, y0: player.y,
-        x1: ramp.landX, y1: ramp.landY
+        x1: ramp.landX, y1: ramp.landY,
+        face
       };
       state.rampCooldown = 1.2;
       playTone(280, 'sawtooth', 0.08);
       setTimeout(() => playTone(520, 'triangle', 0.12), 80);
-      showToast('🛻 Fence jump! Landed on TOP STREET.');
+      showToast(ramp.landToast || '🛻 Fence jump!');
       for (let p = 0; p < 14; p++) {
         particles.push({
           x: player.x, y: player.y,
@@ -1110,8 +1125,8 @@
 
     function resetPlayerPosition() {
       player.x = yardStartX - 100;
-      player.y = rows[1].roadY + dirtRoadH / 2;
-      showToast("📍 Reset to west entry dirt road.");
+      player.y = rows[4].roadY + dirtRoadH / 2;
+      showToast("📍 Reset to west gate on bottom dirt road.");
     }
 
     // --- Main Update Loop ---
@@ -1147,7 +1162,10 @@
         const ease = u * u * (3 - 2 * u);
         player.x = j.x0 + (j.x1 - j.x0) * ease;
         player.y = j.y0 + (j.y1 - j.y0) * ease - Math.sin(Math.PI * u) * 70;
-        player.heading = -Math.PI / 2;
+        player.heading = j.face === 'east' ? 0
+          : j.face === 'south' ? Math.PI / 2
+          : j.face === 'west' ? Math.PI
+          : -Math.PI / 2;
         if (u >= 1) {
           player.x = j.x1;
           player.y = j.y1;
@@ -2149,34 +2167,63 @@
 
     function renderRamp(ramp) {
       const x = ramp.x, y = ramp.y, w = ramp.w, h = ramp.h;
+      const face = ramp.face || 'north';
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.beginPath();
       ctx.ellipse(x + w / 2 + 3, y + h - 2, w / 2 + 4, 8, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Wedge: low south → high north
-      ctx.fillStyle = '#78716c';
-      ctx.beginPath();
-      ctx.moveTo(x, y + h);
-      ctx.lineTo(x + w, y + h);
-      ctx.lineTo(x + w - 6, y + 8);
-      ctx.lineTo(x + 6, y + 8);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#a8a29e';
-      ctx.beginPath();
-      ctx.moveTo(x + 6, y + 8);
-      ctx.lineTo(x + w - 6, y + 8);
-      ctx.lineTo(x + w - 10, y);
-      ctx.lineTo(x + 10, y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#eab308';
-      for (let i = 0; i < 3; i++) {
-        ctx.fillRect(x + 12 + i * 2, y + h - 10 - i * 10, w - 24 - i * 4, 5);
-      }
-      ctx.fillStyle = '#0f172a';
-      for (let i = 0; i < 3; i++) {
-        ctx.fillRect(x + 12 + i * 2, y + h - 5 - i * 10, w - 24 - i * 4, 5);
+      if (face === 'east') {
+        // Wedge: low west → high east (faces restricted yard)
+        ctx.fillStyle = '#78716c';
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + h);
+        ctx.lineTo(x + w - 8, y + h - 6);
+        ctx.lineTo(x + w - 8, y + 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#a8a29e';
+        ctx.beginPath();
+        ctx.moveTo(x + w - 8, y + 6);
+        ctx.lineTo(x + w - 8, y + h - 6);
+        ctx.lineTo(x + w, y + h - 10);
+        ctx.lineTo(x + w, y + 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#eab308';
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(x + 8 + i * 12, y + 10 + i * 2, 5, h - 20 - i * 4);
+        }
+        ctx.fillStyle = '#0f172a';
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(x + 14 + i * 12, y + 10 + i * 2, 5, h - 20 - i * 4);
+        }
+      } else {
+        // Wedge: low south → high north (faces TOP STREET)
+        ctx.fillStyle = '#78716c';
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + w, y + h);
+        ctx.lineTo(x + w - 6, y + 8);
+        ctx.lineTo(x + 6, y + 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#a8a29e';
+        ctx.beginPath();
+        ctx.moveTo(x + 6, y + 8);
+        ctx.lineTo(x + w - 6, y + 8);
+        ctx.lineTo(x + w - 10, y);
+        ctx.lineTo(x + 10, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#eab308';
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(x + 12 + i * 2, y + h - 10 - i * 10, w - 24 - i * 4, 5);
+        }
+        ctx.fillStyle = '#0f172a';
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(x + 12 + i * 2, y + h - 5 - i * 10, w - 24 - i * 4, 5);
+        }
       }
       ctx.fillStyle = '#fef08a';
       ctx.font = 'bold 9px monospace';

@@ -1,6 +1,6 @@
 # CAPs Garage — Street Arcade BETA (500-Bay Yard)
 
-Playable retro soft-isometric arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, **gear-toggled bay doors**, **fence-jump ramps** to top street, **touch-on-sprite drive**, street → gate-only → parking-lot zoning, bottom garage wall + south E–W street, dirt service roads, parked blue SUV bay, teal-green road blockers (10 corridor allowlist + bay-500 pile right of 500), yard-edge right-side dead-zone fence, fenced oil tank yard + deposit pad, and the 3-second global cooldown gear vault.
+Playable retro soft-isometric arcade beta for **CAPs Garage** on Base. This folder contains the live playable build featuring the full 500-bay garage yard, **gear-toggled bay doors**, **two-ramp loop** (#100 → restricted yard → top street), **touch-on-sprite drive**, street → **bottom-road gate-only** → parking-lot zoning, bottom garage wall + south E–W street, dirt service roads, parked blue SUV bay, teal-green road blockers (9 corridor allowlist + bay-500 pile right of 500; **no greens on bottom dirt road**), yard-edge right-side dead-zone fence, fenced oil tank yard + deposit pad, and the 3-second global cooldown gear vault.
 
 Live repo: [CAPSTILLER/drag](https://github.com/CAPSTILLER/drag) · Live app: [caps-garage](https://bankr.bot/apps/caps-garage)
 
@@ -17,7 +17,7 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 - **PARKING LOT** — asphalt with white stall markings **inside the yard after the gate** (north apron + mid yard). South margin is street, not lot stalls.
 - Dirt service roads still separate garage rows inside the lot (tire ruts, dust).
 - Soft-isometric gate marks the west STREET ↔ LOT threshold.
-- **West front walls** — solid wall/fence on the yard’s west face **north and south of the gate**. Drive/walk cannot slip into the parking lot from the west STREET except through the **GATE** opening (Road 1 band).
+- **West front walls** — solid wall/fence on the yard’s west face **north and south of the gate**. Drive/walk cannot slip into the parking lot from the west STREET except through the **GATE** opening aligned with the **bottom dirt road (Road 4 under 401–500)**.
 - **Bottom garage wall** — solid visual barrier the **full garage length** between the southernmost bay-row dirt road (Road 4 under bays 401–500) and the parking-lot / south-street strip. Collision blocks **truck and walk**.
 - **North yard fence** — seals the yard/lot from the top street. Solid for truck and walk; jump over via ramps only.
 
@@ -48,9 +48,10 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 
 ### 5. Fence-Jump Ramps (Truck Only)
 - Visible wedge ramps; collision trigger for truck; walk can stand on them without launching.
-- **A) Yard-right ramp** — right side of the yard near east / before the right fence (`rightSealX - 78`, north apron). Driving the red SUV over it jumps **north over the north fence** onto **TOP STREET**.
-- **B) Road-1 east ramp** — east end of **Road 1** (second E–W dirt corridor). Same fence jump onto TOP STREET.
-- Short arc animation (~0.55s) then land on the top street band.
+- **Loop:** yard/road → ramp under **#100** → **restricted east yard** → ramp in restricted yard → **TOP STREET**.
+- **A) Bay #100 east ramp** — on **Road 0 under garage #100** (replaces the old 100↔200 corridor green). Faces **east** toward the right-side restricted yard. Red SUV launch lands **inside the restricted yard** (not top street). No ramp under #200 / no Road-1-east ramp.
+- **B) Restricted-yard return ramp** — inside the east restricted pocket, faces **north**. Red SUV launch lands on **TOP STREET**.
+- Short arc animation (~0.55s); truck-only (walk stands without launching).
 
 ### 6. Parked Blue SUV in Bay #42
 - Nose peeks out ~5px into the doorway threshold; zero dirt-road overlap for free cruise past the bay.
@@ -61,10 +62,10 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 - Color: blue-green / teal-green (distinct from blue bay SUV and red player truck).
 - Inspect (E): exactly **`broke down, dont even try...`**
 - **Collision:** red truck uses a near-full body AABB and is **hard-blocked**; walking character uses a narrow AABB and can squeeze a **thin south edge** when Cap expects it. Cap rule: block drive, allow walk.
-- **Corridor allowlist** (10 blockers — one mid-corridor SUV per pair; no Road-0 choke wall):
+- **Corridor allowlist** (9 blockers — one mid-corridor SUV per pair; **no greens on bottom dirt road / Road 4**; `100 ↔ 200` removed — ramp under #100):
   - `1 ↔ 101`, `110 ↔ 210`, `230 ↔ 330`, `344 ↔ 444`, `262 ↔ 362`
-  - `63 ↔ 163`, `84 ↔ 184`, `395 ↔ 495`, `100 ↔ 200`, `400 ↔ 300`
-- **Bay #500 pile (extra):** exactly **8** piled teal SUVs sitting **just to the right of bay 500** (south approach between bay/road and bottom wall). Bay 500 door/approach stays accessible; pile still clogs the bottom approach toward the street/wall. Same inspect copy + truck-block / walk-squeeze rules. These 8 are **in addition to** the 10 corridor allowlist.
+  - `63 ↔ 163`, `84 ↔ 184`, `395 ↔ 495`, `400 ↔ 300`
+- **Bay #500 pile (extra):** exactly **8** piled teal SUVs sitting **just to the right of bay 500** (south approach between bay/road and bottom wall). Bay 500 door/approach stays accessible; pile still clogs the bottom approach toward the street/wall. Same inspect copy + truck-block / walk-squeeze rules. These 8 are **in addition to** the 9 corridor allowlist.
 
 ### 8. Community Oil Tank & Truck Deposit Pad (Fenced Yard)
 - Giant industrial tank at the eastern end of the yard inside a **chain-link / rusty fence** compound.
@@ -90,7 +91,7 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 | **Release touch** | Stop thrust |
 | **Drive over yellow cans** | Pick up oil cans (inventory cap 10) |
 | **Drive onto Oil Tank Pad** | Auto-deposit cans into community tank & earn DRB |
-| **Drive onto ramp (truck)** | Fence-jump to TOP STREET |
+| **Drive onto ramp (truck)** | #100 → restricted yard; restricted ramp → TOP STREET |
 | **E / Space** (walk at door) | Open/Close bay door (−1 GEAR) |
 | **E / Space** (near SUVs) | Inspect Blue / teal SUVs |
 | **Test Rig Buttons** | Instant can packing, 3s gear vault claim, pad warp, blue SUV warp, hop in/out |
@@ -100,14 +101,14 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 
 ## Playtest Tips (Chokepoints)
 
-1. Start on the west **STREET**, drive east **only through the GATE** into the **PARKING LOT** — west front walls north/south of the gate block slip-ins.
-2. Drive south to **Road 4** (under bays 401–500): confirm the **bottom wall** blocks truck and walk from dropping into the south street; the band below the wall should read as **STREET** (asphalt + yellow dashes + curbs).
+1. Start on the west **STREET** at the **bottom dirt road (Road 4)** gate — drive east **only through the GATE** into the **PARKING LOT**. West front walls seal all other west entries.
+2. On **Road 4** (under bays 401–500): confirm **no corridor teal greens** mid-road; the **bottom wall** blocks truck and walk from dropping into the south street; the band below the wall should read as **STREET**.
 3. At **bay #500**, confirm the **pile of 8 teal SUVs** sits **just to the right** of the bay (door/approach usable) while still clogging the bottom approach — truck hard-blocked; walk may find a thin squeeze; inspect still `broke down, dont even try...`.
 4. Hop out and **walk the south edge** past a corridor teal SUV — then remount and confirm the **red truck cannot** push through.
-5. Cap allowlist choke: corridor between **bay 1 ↔ 101** (one clear pair, not a wall). Other pairs: `110/210`, `230/330`, `344/444`, `262/362`, `63/163`, `84/184`, `395/495`, `100/200`, `400/300`.
-6. **Right-side fence** + oil yard: fence follows the **yard** south edge (not across bottom street). Confirm lot/yard cannot enter the east restricted zone; oil **east gate** (or warp) for the deposit pad. South street remains clear along the asphalt.
+5. Cap allowlist choke: corridor between **bay 1 ↔ 101** (one clear pair, not a wall). Other pairs: `110/210`, `230/330`, `344/444`, `262/362`, `63/163`, `84/184`, `395/495`, `400/300` (no `100/200`).
+6. **Right-side fence** + oil yard: fence follows the **yard** south edge (not across bottom street). Lot/yard cannot enter the east restricted zone except via the **#100 ramp**; oil **east gate** (or warp) for the deposit pad. South street remains clear along the asphalt.
 7. **Gear doors:** start with 5 GEAR. Hop out, walk to any bay door, E to open (−1 GEAR), remount, drive through. In-truck E at a door must **not** spend GEAR. Claim vault for more GEAR.
-8. **Ramps:** drive truck onto yard-right ramp or Road-1 east ramp → land on TOP STREET north of the north fence.
+8. **Ramps:** under **#100** (no green there) → restricted yard; restricted-yard ramp → TOP STREET. Confirm **no ramp under #200**.
 9. **Mobile:** no arrow overlay; touch-hold the truck/walker and drag relative to facing.
 
 ---
