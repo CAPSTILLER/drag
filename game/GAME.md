@@ -120,3 +120,17 @@ Primary playable: **`game/index.html`** (single-file canvas arcade).
 3. **`OilEscrow.sol`**: Public zero-argument `fillOil()` keeper tap with 10s cooldown and 90/10 split.
 4. **`DropVault.sol`**: Community pull-claim vault with 3 lifecycle windows (holder, scavenger, dust sweep).
 5. **`GateRegistry.sol`**: Dynamic admin NFT gatekeeping registry.
+
+---
+
+## Seeded mechanics (DET build, `garage.js`)
+
+Same approach as Gear Mill DET: mulberry32 sub-streams from one session seed (`?seed=` in the URL, random if absent), a fixed 60 Hz tick, an input/event log, and an FNV-1a replay hash. **No tokens move.** Earned GEAR is *pending* until banked at the Oil Tank pad, and banked GEAR is only recorded for a future server claim.
+
+- **Light poles:** 50 poles, one after every 10 bays (L1–L50). About 60% start dark (seeded). **BYTE** brings a gear on a seeded timer (first in 3–11s, then every 6–14s, max 3 in the stash). On foot, use a stashed gear at a dark pole's generator → lamp on → +1 GEAR pending. Pole repairs `{pole, tick}` are the proof-of-play record for BYTE gears.
+- **Oil cans:** the wave layout is seeded. The pickup path (ids, ticks, positions) is checked **only when oil is deposited**: each can must be in the seed, not reused, picked within reach, and reachable at SUV speed. Rig cans deposit as UNVERIFIED.
+- **Doors (seeded shuffle of 500):** 100×2, 50×5, 25×10, 5×25, 1×100 GEAR (181 prizes). 100 traps: 40 spill all carried oil cans, 40 drop all pending/stashed gears, and 20 pour broken gears in front of the bay (blocks the SUV, walker passes). 219 are empty. A door's contents show the first time it's opened; opening still costs 1 held GEAR.
+- **Traps hit before any claim:** they wipe pending items only. Banked items are safe.
+- **Broken-down vehicle maze** in the restricted yard between the #100 ramp landing and the oil-yard east gate. It's checked solvable by `routeCheck()` (grid BFS on the real collision function).
+- **Session panel (📜):** shows pending, banked, lost, repairs and the replay hash. Copy/Download exports `{seed, ticks, log, hash, ...}`.
+- Tests: `node game/test/det-test.mjs` (door counts, route solvability, live hash == replay hash, trap wipe). Verifier prototype: `node game/test/verify-session.mjs export.json`.
