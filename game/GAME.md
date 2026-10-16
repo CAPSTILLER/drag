@@ -134,3 +134,14 @@ Same approach as Gear Mill DET: mulberry32 sub-streams from one session seed (`?
 - **Broken-down vehicle maze** in the restricted yard between the #100 ramp landing and the oil-yard east gate. It's checked solvable by `routeCheck()` (grid BFS on the real collision function).
 - **Session panel (📜):** shows pending, banked, lost, repairs and the replay hash. Copy/Download exports `{seed, ticks, log, hash, ...}`.
 - Tests: `node game/test/det-test.mjs` (door counts, route solvability, live hash == replay hash, trap wipe). Verifier prototype: `node game/test/verify-session.mjs export.json`.
+
+## Levels + dev mode (DET v2)
+
+- **Two areas, picked separately:** a *yard* level (oil tank yard, x ≥ the right fence) and a *garage* level (bay rows, lot, streets). Files live in `game/levels/` and are listed in `game/levels/index.json` (`{id, name, area, file}`). URL: `?yard=<id>&garage=<id>`, or `local` for a level saved on this device. Players pick from 🗺 Levels.
+- **Hashing:** each level file is normalized and hashed. The replay hash includes `yardHash.garageHash`, and the session export carries both levels, so `verify-session.mjs` replays against the exact layout.
+- **Dev mode:** open `?dev=1`, tap the title 5×, or press `` ` ``. The game pauses while you edit. You edit the area you were standing in; ⇄ switches areas.
+  - Tap or drag objects to select and move them. Drag empty ground to pan. Use two-finger pinch, the mouse wheel or 🔍 to zoom.
+  - `+Car/+Crate/+Ramp/+Gear/+Lamp` then tap to place. ⟳ rotates (cars 90°, ramps change facing), Jump ± sets ramp distance, ⬆ Stack adds a copy on top, and dropping a car or crate onto another of the same kind snaps it onto the stack. 🗑 deletes, ↶ undoes (Ctrl+Z, Del and R work on PC).
+  - 💾 saves to this device. 📤 Export downloads `<area>-<id>.json`. 📥 Import loads a level file. ✅ Route checks that the SUV route from the ramp landing to the pad still works. ▶ Play exits dev mode and starts a new session.
+  - To make a level the default for everyone, add the exported file to `game/levels/` and put it first for its area in `index.json`.
+- BYTE only brings gears while you're in the yard or garage area (not on the streets). Bay doors open from both sides.

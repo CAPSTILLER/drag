@@ -336,6 +336,15 @@
       #test-bench { top: auto; bottom: 180px; right: 10px; }
     }
 
+    #dev-bar { position: absolute; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; gap: 4px; padding: 6px; background: rgba(8,12,18,0.94); border-top: 2px solid #22d3ee; z-index: 55; }
+    #dev-bar.show { display: flex; }
+    #dev-info { font: 11px var(--font-mono); color: #67e8f9; }
+    .dev-row { display: flex; gap: 4px; overflow-x: auto; }
+    .dev-row button { flex: 0 0 auto; background: var(--bg-elevated); color: #fff; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 7px 9px; font-size: 12px; touch-action: manipulation; }
+    .dev-row button.on { border-color: #22d3ee; background: #164e63; }
+    .dev-row .dev-exit { background: #166534; border-color: #4ade80; }
+    .sx-group { margin-top: 10px; font-weight: 800; color: #fbbf24; }
+    .sx-lvl { display: block; padding: 8px; margin-top: 4px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 6px; color: #fff; text-decoration: none; }
     .stat-pill.pending { border-color: #fbbf24; color: #fde68a; cursor: pointer; }
     .stat-pill.stash { border-color: var(--accent-byte); color: #6ee7b7; }
     #session-panel { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); z-index: 60; }
@@ -406,6 +415,9 @@
       </button>
       <button class="btn-hud" onclick="warpToBlueSUV()" title="Warp to parked Blue SUV bay">
         <span>🚙 Blue SUV Bay</span>
+      </button>
+      <button class="btn-hud" onclick="openLevels()" title="Pick a yard level and a garage-area level">
+        <span>🗺 Levels</span>
       </button>
       <button class="btn-hud" onclick="openSession()" title="Session summary, seed + replay hash export">
         <span>📜 Session</span>
@@ -483,11 +495,47 @@
       </div>
     </div>
 
+    <!-- DEV / level editor (?dev=1, 5 taps on title, or ` key) -->
+    <div id="dev-bar">
+      <div id="dev-info">dev</div>
+      <div class="dev-row">
+        <button data-tool="select" onclick="devCmd('tool','select')">👆 Move</button>
+        <button data-tool="car" onclick="devCmd('tool','car')">+🚗 Car</button>
+        <button data-tool="crate" onclick="devCmd('tool','crate')">+📦 Crate</button>
+        <button data-tool="ramp" onclick="devCmd('tool','ramp')">+⛰ Ramp</button>
+        <button data-tool="gear" onclick="devCmd('tool','gear')">+⚙ Gear</button>
+        <button data-tool="lamp" onclick="devCmd('tool','lamp')">+💡 Lamp</button>
+      </div>
+      <div class="dev-row">
+        <button onclick="devCmd('rotate')">⟳ Rotate</button>
+        <button onclick="devCmd('stack')">⬆ Stack</button>
+        <button onclick="devCmd('jump',-20)">Jump −</button>
+        <button onclick="devCmd('jump',20)">Jump +</button>
+        <button onclick="devCmd('delete')">🗑 Delete</button>
+        <button onclick="devCmd('undo')">↶ Undo</button>
+        <button onclick="devCmd('zoom',0.8)">🔍−</button>
+        <button onclick="devCmd('zoom',1.25)">🔍+</button>
+      </div>
+      <div class="dev-row">
+        <button onclick="devCmd('area')">⇄ Yard/Garage</button>
+        <button onclick="devCmd('name')">✏ Name</button>
+        <button onclick="devCmd('save')">💾 Save</button>
+        <button onclick="devCmd('export')">📤 Export</button>
+        <button onclick="devCmd('import')">📥 Import</button>
+        <button onclick="devCmd('copy')">📋 Copy</button>
+        <button onclick="devCmd('check')">✅ Route</button>
+        <button onclick="devCmd('default')">♻ Built-in</button>
+        <button class="dev-exit" onclick="devCmd('exit')">▶ Play</button>
+      </div>
+      <input type="file" id="dev-file" accept=".json,application/json" style="display:none" />
+    </div>
+
     <!-- Mobile: ACTION only (D-pad removed — touch-drag on sprite/truck) -->
     <div id="touch-controls" aria-hidden="true" style="display:none"></div>
     <div id="touch-action" onclick="triggerCurrentAction()">ACTION<br>(E)</div>
   </div>
 
-  <script src="./garage.js?v=seed1"></script>
+  <script src="./garage.js?v=lvl2"></script>
+  <script src="./dev.js?v=lvl2"></script>
 </body>
 </html>

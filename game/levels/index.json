@@ -1,0 +1,17 @@
+{
+ "v": 1,
+ "levels": [
+  {
+   "id": "yard-1",
+   "name": "The Yard (default)",
+   "area": "yard",
+   "file": "yard-1.json"
+  },
+  {
+   "id": "garage-1",
+   "name": "Garage Rows (default)",
+   "area": "garage",
+   "file": "garage-1.json"
+  }
+ ]
+}

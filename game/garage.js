@@ -82,7 +82,7 @@
     // => same hash. Nothing here calls a contract — earnings are PENDING.
     // ===================================================================
     const TICK = 1 / 60;
-    const DET_VERSION = 'caps-garage-det-1';
+    const DET_VERSION = 'caps-garage-det-2';
     const STASH_CAP = 3;
     function fnv1a(str, h) {
       h = (h == null ? 0x811c9dc5 : h) >>> 0;
@@ -125,7 +125,9 @@
       replaying: false, canWave: 0, canLayout: {}, deposited: {}, lastDepT: 0,
       led: freshLedger()
     };
-    let simIn = [0, 0, 0, 0, 0, 0, 0]; // up,down,left,right,touch,dragX,dragY
+    let simIn = [0, 0, 0, 0, 0, 0, 0];
+    // Dev/level-editor state (logic lives in dev.js). Sim is paused while dev.on.
+    const dev = { on: false, cam: { x: 0, y: 0, z: 1 } }; // up,down,left,right,touch,dragX,dragY
 
     // --- Canvas & Radar Setup ---
     const canvas = document.getElementById('game-canvas');
@@ -359,18 +361,14 @@
     })();
 
     // --- LIGHT POLES: one every 10 bays (after #10, #20 … #500) = 50 poles ---
-    const poles = [];
-    for (let r = 0; r < garageRows; r++) {
-      for (let k = 0; k < 10; k++) {
+    const poles = []; // filled from the level layout (applyLayout)
+    function defaultPolePositions() {
+      const out = [];
+      for (let r = 0; r < garageRows; r++) for (let k = 0; k < 10; k++) {
         const c = k * 10 + 9;
-        poles.push({
-          id: r * 10 + k + 1,
-          afterBay: r * 100 + c + 1,
-          x: yardStartX + (c + 1) * garageW - 2, // centre of the wall gap
-          y: rows[r].roadY + 6,
-          on: true
-        });
+        out.push({ x: yardStartX + (c + 1) * garageW - 2, y: rows[r].roadY + 6 });
       }
+      return out;
     }
     function seedPoles() {
       const rr = subRng('poles');
@@ -406,14 +404,17 @@
     // Route (SUV): land from #100 ramp → north strip slalom → NE gap → east room →
     // SE gap → bottom corridor slalom → SW gap → gate pocket → east gate → pad.
     // Verified solvable by routeCheck() (grid BFS on the real collision fn).
-    const wrecks = [];
-    (function buildWrecks() {
+    const wrecks = [];  // filled from the level layout
+    const crates = [];
+    const gearPicks = [];
+    const WRECK_COLS = ['#7c2d12', '#57534e', '#9a3412', '#3f6212', '#713f12', '#475569'];
+    function defaultWrecks() {
+      const out = [];
       const RX = yardEndX + 30; // rightSealX
       const ox = RX + 360;      // oil-yard east wall outer x
       const E = world.width - 24 - 10; // inner face of right-east fence
-      const cols = ['#7c2d12', '#57534e', '#9a3412', '#3f6212', '#713f12', '#475569'];
       let n = 0;
-      const car = (x, y, w, h, tag) => wrecks.push({ x, y, w, h, tag, col: cols[(n++) % cols.length] });
+      const car = (x, y, w, h) => out.push({ x, y, w, h, z: 0, c: (n++) % 6 });
       // North strip slalom
       car(RX + 270, yardStartY - 40, 44, 56, 'n1');
       car(RX + 270, yardStartY + 16, 44, 44, 'n2');
@@ -428,7 +429,8 @@
       // Bottom corridor slalom
       car(ox + 310, 730, 40, 46, 'b1'); car(ox + 310, 776, 40, 44, 'b2');
       car(ox + 160, 820, 40, 54, 'b3');
-    })();
+      return out;
+    }
 
     // --- BYTE the dog: brings a gear on a SEEDED timer ---
     const byteHome = { x: yardStartX + 40, y: rows[4].roadY + 18 };
@@ -512,34 +514,85 @@
     const jumpLandY = topStreet.y + topStreet.h * 0.55;
     const bay100Ramp = bayById(100);
     const ramp100Cx = bay100Ramp ? (bay100Ramp.x + bay100Ramp.w / 2) : (yardEndX - 29);
-    const ramps = [
-      {
-        // Under garage #100 (Road 0) — faces EAST into right-side restricted yard
-        id: 'bay100-east',
-        x: ramp100Cx - 29,
-        y: rows[0].roadY + 14,
-        w: 58,
-        h: 48,
-        face: 'east',
-        landX: rightSealX + 110,
-        landY: rows[0].roadY + dirtRoadH / 2,
-        label: 'RAMP → RESTRICTED',
-        landToast: '🛻 Fence jump! Into the RESTRICTED YARD.'
-      },
-      {
-        // Inside restricted east yard — faces NORTH onto TOP STREET
-        id: 'restricted-north',
-        x: rightSealX + 72,
-        y: yardStartY - 40,
-        w: 56,
-        h: 44,
-        face: 'north',
-        landX: rightSealX + 100,
-        landY: jumpLandY,
-        label: 'RAMP → TOP',
-        landToast: '🛻 Fence jump! Landed on TOP STREET.'
-      }
-    ];
+    const ramps = []; // filled from the level layout
+    const RAMP_FACE = { 0: 'east', 90: 'south', 180: 'west', 270: 'north' };
+    function defaultRamps() {
+      return [
+        { x: ramp100Cx, y: rows[0].roadY + 38, rot: 0, d: Math.round(rightSealX + 110 - ramp100Cx), label: 'RAMP → RESTRICTED' },
+        { x: rightSealX + 100, y: yardStartY - 18, rot: 270, d: Math.round(yardStartY - 18 - jumpLandY), label: 'RAMP → TOP' }
+      ];
+    }
+    function builtinLayout() {
+      const RX = rightSealX;
+      return {
+        v: 1, id: 'yard-1', name: 'The Yard (default)',
+        wrecks: defaultWrecks(),
+        crates: [
+          { x: RX + 16, y: yardStartY + 140, z: 0 }, { x: RX + 16, y: yardStartY + 140, z: 1 }, { x: RX + 46, y: yardStartY + 140, z: 0 },
+          { x: RX + 16, y: 840, z: 0 }, { x: RX + 16, y: 840, z: 1 }, { x: RX + 16, y: 840, z: 2 }
+        ],
+        ramps: defaultRamps(),
+        gears: [{ x: yardStartX + 200, y: rows[4].roadY + 36 }, { x: RX + 420, y: 600 }, { x: yardStartX + 2600, y: rows[2].roadY + 36 }],
+        poles: defaultPolePositions()
+      };
+    }
+    function normLayout(L) {
+      const n = (v) => Math.round(Number(v) || 0);
+      const out = {
+        v: 1, area: L.area === 'yard' ? 'yard' : 'garage', id: String(L.id || 'custom').slice(0, 40), name: String(L.name || 'Custom level').slice(0, 60),
+        wrecks: (L.wrecks || []).map(w => ({ x: n(w.x), y: n(w.y), w: Math.max(16, n(w.w) || 60), h: Math.max(16, n(w.h) || 40), z: Math.max(0, n(w.z)), c: n(w.c) % 6 })),
+        crates: (L.crates || []).map(c => ({ x: n(c.x), y: n(c.y), z: Math.max(0, n(c.z)) })),
+        ramps: (L.ramps || []).map(r => ({ x: n(r.x), y: n(r.y), rot: (((Math.round(n(r.rot) / 90) * 90) % 360) + 360) % 360, d: Math.max(60, Math.min(600, n(r.d) || 200)), label: r.label ? String(r.label).slice(0, 30) : '' })),
+        gears: (L.gears || []).map(g => ({ x: n(g.x), y: n(g.y) })),
+        poles: (L.poles || []).map(p => ({ x: n(p.x), y: n(p.y) }))
+      };
+      return out;
+    }
+    function layoutHashOf(L) { const j = JSON.stringify(normLayout(L)); return fnv1a(j).toString(16).padStart(8, '0') + fnv1a(j, 0x5bd1e995).toString(16).padStart(8, '0'); }
+    function rampGeom(r) {
+      const vert = r.rot === 90 || r.rot === 270;
+      const w = vert ? 48 : 58, h = vert ? 58 : 48;
+      const a = r.rot * Math.PI / 180;
+      return { cx: r.x, cy: r.y, rot: r.rot, d: r.d, x: r.x - w / 2, y: r.y - h / 2, w, h, face: RAMP_FACE[r.rot],
+        landX: Math.round(r.x + Math.cos(a) * r.d), landY: Math.round(r.y + Math.sin(a) * r.d),
+        label: r.label || 'RAMP', landToast: '🛻 Ramp jump!' };
+    }
+    // ---- Two level AREAS: 'yard' (restricted/oil-tank yard, x >= rightSealX) and 'garage' (rows + lot + streets)
+    function areaOf(x) { return x >= rightSealX - 10 ? 'yard' : 'garage'; }
+    function builtinLevels() {
+      const B = normLayout(builtinLayout());
+      const mk = (area, id, name) => ({
+        v: 1, area, id, name,
+        wrecks: B.wrecks.filter(w => areaOf(w.x + w.w / 2) === area),
+        crates: B.crates.filter(c => areaOf(c.x + 14) === area),
+        ramps: B.ramps.filter(r => areaOf(r.x) === area),
+        gears: B.gears.filter(g => areaOf(g.x) === area),
+        poles: B.poles.filter(p => areaOf(p.x) === area)
+      });
+      return { yard: mk('yard', 'yard-1', 'The Yard (default)'), garage: mk('garage', 'garage-1', 'Garage Rows (default)') };
+    }
+    // Combine one yard level + one garage level into the live world. Both hashes enter the replay hash.
+    function applyLevels(Y, G) {
+      const b = (Y && G) ? null : builtinLevels();
+      const y = normLayout(Object.assign({}, Y || b.yard, { area: 'yard' }));
+      const g = normLayout(Object.assign({}, G || b.garage, { area: 'garage' }));
+      det.levels = { yard: y, garage: g };
+      const comb = { id: y.id + '+' + g.id, name: y.name + ' + ' + g.name };
+      ['wrecks', 'crates', 'ramps', 'gears', 'poles'].forEach(k => { comb[k] = g[k].concat(y[k]); });
+      applyLayout(comb);
+      det.levelHash = { yard: layoutHashOf(y), garage: layoutHashOf(g) };
+      det.layoutHash = det.levelHash.yard + '.' + det.levelHash.garage;
+    }
+    // Rebuild live world objects from a level layout (also used by dev mode preview)
+    function applyLayout(L) {
+      const N = normLayout(L);
+      det.layout = N; det.layoutHash = layoutHashOf(N);
+      wrecks.length = 0; N.wrecks.forEach(w => wrecks.push({ x: w.x, y: w.y, w: w.w, h: w.h, z: w.z, col: WRECK_COLS[w.c] }));
+      crates.length = 0; N.crates.forEach(c => crates.push({ x: c.x, y: c.y, w: 28, h: 28, z: c.z }));
+      ramps.length = 0; N.ramps.forEach(r => ramps.push(rampGeom(r)));
+      poles.length = 0; N.poles.forEach((p, i) => poles.push({ id: i + 1, x: p.x, y: p.y, on: true }));
+      gearPicks.length = 0; N.gears.forEach((g, i) => gearPicks.push({ id: i, x: g.x, y: g.y, taken: false }));
+    }
 
     // Player Truck
     const player = {
@@ -640,6 +693,7 @@
     // Touch-on-object drive (primary mobile). Small move threshold so desktop
     // click-inspect / UI clicks are not stolen as drive gestures.
     canvas.addEventListener('pointerdown', e => {
+      if (dev.on) return;
       if (e.button != null && e.button !== 0) return;
       const wpt = screenToWorld(e.clientX, e.clientY);
       if (Math.hypot(wpt.x - player.x, wpt.y - player.y) > touchHitRadius()) return;
@@ -788,10 +842,9 @@
       for (let i = 0; i < garages.length; i++) {
         const g = garages[i];
         const doorCx = g.x + g.w / 2;
-        const doorCy = g.y + g.h; // south lip facing dirt road
         if (Math.abs(player.x - doorCx) > maxDist + 20) continue;
-        if (Math.abs(player.y - doorCy) > maxDist + 20) continue;
-        const d = Math.hypot(player.x - doorCx, player.y - doorCy);
+        // Doors work from BOTH sides: south lip (front road) or north face (back road)
+        const d = Math.min(Math.hypot(player.x - doorCx, player.y - (g.y + g.h)), Math.hypot(player.x - doorCx, player.y - g.y));
         if (d < bestD) { bestD = d; best = g; }
       }
       return best;
@@ -836,6 +889,7 @@
       for (let bi = 0; bi < solidBarriers.length; bi++) if (rectHit(nx, ny, halfW, halfH, solidBarriers[bi])) return true;
       // Broken-down vehicle maze: blocks SUV and walker
       for (let wi = 0; wi < wrecks.length; wi++) if (rectHit(nx, ny, halfW, halfH, wrecks[wi])) return true;
+      for (let ci = 0; ci < crates.length; ci++) if (rectHit(nx, ny, halfW, halfH, crates[ci])) return true;
       // Broken-gear trap piles: SUV only; never trap a truck already inside one
       if (inTruck) {
         for (let di = 0; di < debris.length; di++) {
@@ -900,10 +954,18 @@
     function startRampJump(ramp) {
       if (!state.inTruck || player.jump || state.rampCooldown > 0) return;
       const face = ramp.face || 'north';
+      // Never land inside a wall/wreck: walk the landing point back toward the ramp
+      let lx = ramp.landX, ly = ramp.landY;
+      const hw = player.w * 0.48, hh = player.h * 0.48;
+      for (let k = 0; k < 80 && collidesAt(lx, ly, hw, hh, true); k++) {
+        const ddx = (ramp.cx != null ? ramp.cx : player.x) - lx, ddy = (ramp.cy != null ? ramp.cy : player.y) - ly;
+        const dd = Math.hypot(ddx, ddy); if (dd < 8) break;
+        lx += ddx / dd * 8; ly += ddy / dd * 8;
+      }
       player.jump = {
         t: 0, dur: 0.55,
         x0: player.x, y0: player.y,
-        x1: ramp.landX, y1: ramp.landY,
+        x1: lx, y1: ly,
         face
       };
       state.rampCooldown = 1.2;
@@ -1110,6 +1172,16 @@
         }
       }
 
+      // Placed gear pickups (level layout) → +1 GEAR pending
+      for (let gi = 0; gi < gearPicks.length; gi++) {
+        const gp = gearPicks[gi];
+        if (!gp.taken && Math.hypot(player.x - gp.x, player.y - gp.y) < pickupRange) {
+          gp.taken = true; det.led.pendingGear += 1;
+          playTone(900, 'square', 0.07);
+          showToast('⚙️ Found a gear! +1 GEAR pending.'); updateHUD();
+        }
+      }
+
       // TRUCK DEPOSIT PAD AUTOMATIC DEPOSIT
       const onPad = (player.x >= depositPad.x && player.x <= depositPad.x + depositPad.w &&
                      player.y >= depositPad.y && player.y <= depositPad.y + depositPad.h);
@@ -1129,8 +1201,11 @@
       particles = particles.filter(p => p.alpha > 0);
 
       // BYTE: seeded timer → runs a gear to the player → stash
-      if (!byte.carrying && det.tick >= byte.nextT && det.led.stash < STASH_CAP) byte.carrying = true;
-      if (byte.carrying) {
+      // BYTE only works while the player is inside the yard / garage area (not the streets)
+      const inYard = player.x >= gate.x && player.x <= rightSealRight &&
+        player.y >= northFence.y + northFence.h && player.y <= bottomWall.y + bottomWall.h;
+      if (!byte.carrying && inYard && det.tick >= byte.nextT && det.led.stash < STASH_CAP) byte.carrying = true;
+      if (byte.carrying && inYard) {
         const bdx = player.x - byte.x, bdy = player.y - byte.y;
         const bd = Math.hypot(bdx, bdy);
         if (bd < 22) {
@@ -1215,11 +1290,13 @@
       ctx.clearRect(0, 0, width, height);
 
       ctx.save();
-      ctx.translate(width / 2 - player.x, height / 2 - player.y);
+      const camX = dev.on ? dev.cam.x : player.x, camY = dev.on ? dev.cam.y : player.y;
+      const zoom = dev.on ? dev.cam.z : 1;
+      ctx.translate(width / 2, height / 2); ctx.scale(zoom, zoom); ctx.translate(-camX, -camY);
 
       const yardH = garageRows * (garageH + dirtRoadH);
-      const viewLeft = player.x - width / 2 - 120;
-      const viewRight = player.x + width / 2 + 120;
+      const viewLeft = camX - width / (2 * zoom) - 120;
+      const viewRight = camX + width / (2 * zoom) + 120;
 
       // Terrain Base
       ctx.fillStyle = '#12151a';
@@ -1415,7 +1492,10 @@
         ctx.beginPath(); ctx.ellipse(sp.x, sp.y, 11, 6, 0, 0, Math.PI * 2); ctx.fill();
       });
       // Broken-down vehicle maze
-      wrecks.forEach(w => { if (w.x + w.w > viewLeft && w.x < viewRight) renderWreck(w); });
+      // stacked: draw lower z first
+      const stackables = wrecks.map(w => ['w', w]).concat(crates.map(c => ['c', c])).sort((a, b) => (a[1].z - b[1].z) || (a[1].y - b[1].y));
+      stackables.forEach(([k, o]) => { if (o.x + o.w > viewLeft && o.x < viewRight) (k === 'w' ? renderWreck : renderCrate)(o); });
+      gearPicks.forEach(g => { if (!g.taken) renderGearPick(g); });
 
       // Blue SUV inside Bay #42
       renderBlueSUV(blueSUV.x, blueSUV.y);
@@ -1453,6 +1533,7 @@
       for (let ri = 0; ri < ramps.length; ri++) renderRamp(ramps[ri]);
 
       renderByte();
+      if (dev.on) renderDevOverlay();
 
       // Player
       if (state.inTruck) {
@@ -1644,7 +1725,26 @@
       ctx.fillStyle = '#fca5a5'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
       ctx.fillText('BROKEN GEARS', d.x + d.w / 2, d.y + d.h / 2);
     }
-    function renderWreck(w) {
+    function renderCrate(c) {
+      const lift = c.z * 9, x = c.x, y = c.y - lift;
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(c.x + 3, c.y + 4, c.w, c.h);
+      ctx.fillStyle = '#92400e'; ctx.fillRect(x, y, c.w, c.h);
+      ctx.fillStyle = '#b45309'; ctx.fillRect(x + 2, y + 2, c.w - 4, c.h - 4);
+      ctx.strokeStyle = '#78350f'; ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, c.w - 4, c.h - 4);
+      ctx.beginPath(); ctx.moveTo(x + 3, y + 3); ctx.lineTo(x + c.w - 3, y + c.h - 3); ctx.moveTo(x + c.w - 3, y + 3); ctx.lineTo(x + 3, y + c.h - 3); ctx.stroke();
+    }
+    function renderGearPick(g) {
+      const t = (det.tick % 120) / 120 * Math.PI * 2;
+      ctx.save(); ctx.translate(g.x, g.y); ctx.rotate(t);
+      ctx.fillStyle = '#38bdf8';
+      for (let i = 0; i < 8; i++) { ctx.rotate(Math.PI / 4); ctx.fillRect(-2, -10, 4, 5); }
+      ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    function renderWreck(w0) {
+      const w = w0.z ? { x: w0.x, y: w0.y - w0.z * 12, w: w0.w, h: w0.h, col: w0.col } : w0;
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fillRect(w.x + 3, w.y + 4, w.w, w.h);
       ctx.fillStyle = w.col;
@@ -2066,69 +2166,24 @@
     }
 
     function renderRamp(ramp) {
-      const x = ramp.x, y = ramp.y, w = ramp.w, h = ramp.h;
-      const face = ramp.face || 'north';
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath();
-      ctx.ellipse(x + w / 2 + 3, y + h - 2, w / 2 + 4, 8, 0, 0, Math.PI * 2);
-      ctx.fill();
-      if (face === 'east') {
-        // Wedge: low west → high east (faces restricted yard)
-        ctx.fillStyle = '#78716c';
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + h);
-        ctx.lineTo(x + w - 8, y + h - 6);
-        ctx.lineTo(x + w - 8, y + 6);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#a8a29e';
-        ctx.beginPath();
-        ctx.moveTo(x + w - 8, y + 6);
-        ctx.lineTo(x + w - 8, y + h - 6);
-        ctx.lineTo(x + w, y + h - 10);
-        ctx.lineTo(x + w, y + 10);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#eab308';
-        for (let i = 0; i < 3; i++) {
-          ctx.fillRect(x + 8 + i * 12, y + 10 + i * 2, 5, h - 20 - i * 4);
-        }
-        ctx.fillStyle = '#0f172a';
-        for (let i = 0; i < 3; i++) {
-          ctx.fillRect(x + 14 + i * 12, y + 10 + i * 2, 5, h - 20 - i * 4);
-        }
-      } else {
-        // Wedge: low south → high north (faces TOP STREET)
-        ctx.fillStyle = '#78716c';
-        ctx.beginPath();
-        ctx.moveTo(x, y + h);
-        ctx.lineTo(x + w, y + h);
-        ctx.lineTo(x + w - 6, y + 8);
-        ctx.lineTo(x + 6, y + 8);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#a8a29e';
-        ctx.beginPath();
-        ctx.moveTo(x + 6, y + 8);
-        ctx.lineTo(x + w - 6, y + 8);
-        ctx.lineTo(x + w - 10, y);
-        ctx.lineTo(x + 10, y);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#eab308';
-        for (let i = 0; i < 3; i++) {
-          ctx.fillRect(x + 12 + i * 2, y + h - 10 - i * 10, w - 24 - i * 4, 5);
-        }
-        ctx.fillStyle = '#0f172a';
-        for (let i = 0; i < 3; i++) {
-          ctx.fillRect(x + 12 + i * 2, y + h - 5 - i * 10, w - 24 - i * 4, 5);
-        }
+      // Draw an east-facing wedge in local space, rotated to the ramp's facing.
+      const L = ramp.rot === 90 || ramp.rot === 270 ? ramp.h : ramp.w;
+      const W = ramp.rot === 90 || ramp.rot === 270 ? ramp.w : ramp.h;
+      const cx = ramp.cx != null ? ramp.cx : ramp.x + ramp.w / 2, cy = ramp.cy != null ? ramp.cy : ramp.y + ramp.h / 2;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate((ramp.rot || 0) * Math.PI / 180);
+      const x = -L / 2, y = -W / 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x + 3, y + 4, L, W);
+      ctx.fillStyle = '#78716c';
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + W); ctx.lineTo(x + L - 8, y + W - 6); ctx.lineTo(x + L - 8, y + 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#a8a29e';
+      ctx.beginPath(); ctx.moveTo(x + L - 8, y + 6); ctx.lineTo(x + L - 8, y + W - 6); ctx.lineTo(x + L, y + W - 10); ctx.lineTo(x + L, y + 10); ctx.closePath(); ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = '#eab308'; ctx.fillRect(x + 8 + i * 12, y + 10 + i * 2, 5, W - 20 - i * 4);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(x + 14 + i * 12, y + 10 + i * 2, 5, W - 20 - i * 4);
       }
-      ctx.fillStyle = '#fef08a';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(ramp.label, x + w / 2, y - 4);
+      ctx.restore();
+      ctx.fillStyle = '#fef08a'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(ramp.label || 'RAMP', cx, ramp.y - 4);
     }
 
     function renderRedTruck(x, y, angle) {
@@ -2321,6 +2376,8 @@
       player.x = yardStartX - 100; player.y = rows[4].roadY + dirtRoadH / 2;
       player.heading = 0; player.jump = null; player.trail = [];
       garages.forEach(g => { g.doorOpen = false; });
+      if (!det.levels) applyLevels(null, null);
+      gearPicks.forEach(g => { g.taken = false; });
       buildDoorTable(); seedPoles();
       debris.length = 0; spills = []; particles = [];
       byte.x = byteHome.x; byte.y = byteHome.y; byte.carrying = false; byte.count = 0; byte.face = 1;
@@ -2331,7 +2388,8 @@
     function stateHash() {
       const L = det.led;
       const o = {
-        v: DET_VERSION, s: det.seed, t: det.tick,
+        v: DET_VERSION, s: det.seed, t: det.tick, lh: det.layoutHash,
+        gp: gearPicks.map(g => g.taken ? 1 : 0).join(''),
         p: [player.x, player.y, player.heading, state.inTruck ? 1 : 0, player.jump ? 1 : 0],
         g: state.gear, drb: state.drb, c: L.carried.map(c => c.id),
         L: [L.pendingGear, L.pendingByte, L.stash, L.bankedGear, L.bankedDrb, L.lostGear, L.lostCans, L.rig],
@@ -2355,14 +2413,19 @@
         pending: { gear: L.pendingGear, byte: L.pendingByte, stash: L.stash },
         banked: { gear: L.bankedGear, drbVerified: L.bankedDrb },
         lost: { gear: L.lostGear, cans: L.lostCans }, rigUses: L.rig,
+        levels: {
+          yard: { id: det.levels.yard.id, name: det.levels.yard.name, hash: det.levelHash.yard, layout: det.levels.yard },
+          garage: { id: det.levels.garage.id, name: det.levels.garage.name, hash: det.levelHash.garage, layout: det.levels.garage }
+        },
         repairs: L.repairs, byteHandoffs: L.handoffs, doors: L.doors, deposits: L.deposits,
         log: det.log
       };
     }
     // Headless replay (same seed + same log => same hash). Clobbers live state.
-    function replay(seed, log, ticks, label) {
+    function replay(seed, log, ticks, label, levels) {
       det.replaying = true;
       try {
+        if (levels) applyLevels(levels.yard && (levels.yard.layout || levels.yard), levels.garage && (levels.garage.layout || levels.garage));
         resetSim(seed, label);
         let i = 0;
         for (let t = 0; t < ticks; t++) {
@@ -2401,7 +2464,7 @@
       }
       return false;
     }
-    const mazeStart = { x: ramps[0].landX, y: ramps[0].landY };
+    const mazeStart = (() => { const g = rampGeom(defaultRamps()[0]); return { x: g.landX, y: g.landY }; })();
     const mazeGoal = { x: depositPad.x + depositPad.w / 2, y: depositPad.y + depositPad.h / 2 };
 
     function loop(time) {
@@ -2409,21 +2472,45 @@
       lastTime = time;
       loopAcc += dt;
       let n = 0;
+      if (!det.ready || dev.on) loopAcc = 0;
       while (loopAcc >= TICK && n < 8) { detTick(); loopAcc -= TICK; n++; }
       if (n >= 8) loopAcc = 0;
       render();
       requestAnimationFrame(loop);
     }
     let loopAcc = 0;
+    const LS_LOCAL = 'capsgarage.level.local';
+    function lsGet(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+    function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) {} }
+    det.ready = false; det.levelList = [];
     (function boot() {
-      let q = null;
-      try { q = new URLSearchParams(location.search).get('seed'); } catch (_) {}
+      let q = null, want = { yard: null, garage: null }, dv = null;
+      try { const sp = new URLSearchParams(location.search); q = sp.get('seed'); want.yard = sp.get('yard'); want.garage = sp.get('garage'); dv = sp.get('dev'); } catch (_) {}
       const parsed = parseSeed(q);
       const seed = parsed != null ? parsed : (Math.floor(Math.random() * 4294967296) >>> 0);
-      resetSim(seed, q || String(seed));
-      updateHUD();
+      const start = (Y, G) => {
+        applyLevels(Y, G);
+        resetSim(seed, q || String(seed));
+        det.ready = true; updateHUD();
+        if (dv === '1') enterDev();
+      };
+      const local = (area) => { if (want[area] !== 'local') return null; try { return JSON.parse(lsGet(LS_LOCAL + '.' + area)); } catch (_) { return null; } };
+      const b = builtinLevels();
+      if (typeof fetch !== 'function') { start(local('yard') || b.yard, local('garage') || b.garage); return; }
+      fetch('levels/index.json', { cache: 'no-store' }).then(r => r.json()).then(idx => {
+        det.levelList = (idx.levels || []);
+        const load = (area) => {
+          const lc = local(area); if (lc) return Promise.resolve(lc);
+          const list = det.levelList.filter(l => l.area === area);
+          const pick = list.find(l => l.id === want[area]) || list[0];
+          if (!pick) return Promise.resolve(b[area]);
+          return fetch('levels/' + pick.file, { cache: 'no-store' }).then(r => r.json()).then(L => Object.assign({ id: pick.id, name: pick.name }, L, { area }));
+        };
+        return Promise.all([load('yard'), load('garage')]).then(([Y, G]) => start(Y, G));
+      }).catch(() => start(b.yard, b.garage));
     })();
     window.__garage = {
+      applyLevels, builtinLevels, areaOf, applyLayout, builtinLayout, normLayout, layoutHashOf, crates, gearPicks,
       det, replay, stateHash, sessionExport, resetSim, routeCheck, mazeStart, mazeGoal,
       poles, garages, wrecks, debris, byte, player, state, ramps, depositPad,
       tick: (n) => { for (let i = 0; i < (n || 1); i++) detTick(); render(); },
@@ -2431,12 +2518,28 @@
     };
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(loop);
 
+    function levelHref(area, id) {
+      const sp = new URLSearchParams(location.search); sp.set(area, id); sp.delete('dev'); return '?' + sp.toString();
+    }
+    function openLevels() {
+      const el = document.getElementById('session-panel');
+      const group = (area, title) => {
+        const cur = det.levels[area];
+        const items = det.levelList.filter(l => l.area === area).map(l => `<a class="sx-lvl" href="${levelHref(area, l.id)}">${l.id === cur.id ? '▶ ' : ''}${l.name}</a>`);
+        if (lsGet(LS_LOCAL + '.' + area)) items.push(`<a class="sx-lvl" href="${levelHref(area, 'local')}">🛠 My saved ${area} level (this device)</a>`);
+        return `<div class="sx-group">${title}</div><div class="sx-row"><span>Now</span><b>${cur.name} · ${det.levelHash[area].slice(0, 8)}</b></div>${items.join('') || '<div class="sx-note">Offline — built-in level only.</div>'}`;
+      };
+      document.getElementById('session-body').innerHTML = group('yard', '🛢️ YARD levels (oil tank yard)') + group('garage', '🚪 GARAGE-AREA levels (bay rows + lot)');
+      el.classList.add('show');
+    }
     function openSession() {
       const ex = sessionExport();
       const el = document.getElementById('session-panel');
       const L = det.led;
       document.getElementById('session-body').innerHTML = `
         <div class="sx-row"><span>Seed</span><b>${det.seedLabel}${det.seedLabel !== String(det.seed) ? ' (' + det.seed + ')' : ''}</b></div>
+        <div class="sx-row"><span>Yard level</span><b>${det.levels.yard.name} · ${det.levelHash.yard.slice(0, 8)}</b></div>
+        <div class="sx-row"><span>Garage level</span><b>${det.levels.garage.name} · ${det.levelHash.garage.slice(0, 8)}</b></div>
         <div class="sx-row"><span>Tick</span><b>${det.tick} (${(det.tick / 60).toFixed(1)}s)</b></div>
         <div class="sx-row"><span>⏳ Pending GEAR</span><b>${L.pendingGear} doors + ${L.pendingByte} BYTE</b></div>
         <div class="sx-row"><span>🦴 Stash (uninstalled)</span><b>${L.stash}</b></div>

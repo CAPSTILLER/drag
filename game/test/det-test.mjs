@@ -42,4 +42,31 @@ G.replay(live.seed, [], 1); const g = G.garages.find(x => x.content.kind === 'tr
 L().pendingGear = 7; L().stash = 2; S.inTruck = false; P.x = g.x + g.w / 2; P.y = g.y + g.h + 30; S.gear = 3;
 step(1); G.queueAct('act'); step(1);
 ok(L().pendingGear === 0 && L().stash === 0 && L().lostGear === 9, 'drop trap wiped pending (lost ' + L().lostGear + ')');
+// 5) Level hashes are part of the replay hash (per area)
+{
+  const b = G.builtinLevels();
+  const base = G.replay(live.seed, live.log, live.ticks, live.seedLabel, { yard: b.yard, garage: b.garage }).hash;
+  ok(base === live.hash, 'builtin levels replay == live');
+  const y2 = JSON.parse(JSON.stringify(b.yard)); y2.crates.push({ x: 6700, y: 200, z: 0 });
+  const h2 = G.replay(live.seed, live.log, live.ticks, live.seedLabel, { yard: y2, garage: b.garage }).hash;
+  ok(h2 !== base, 'edited YARD level -> different hash');
+  const g2 = JSON.parse(JSON.stringify(b.garage)); g2.gears.push({ x: 900, y: 300 });
+  const h3 = G.replay(live.seed, live.log, live.ticks, live.seedLabel, { yard: b.yard, garage: g2 }).hash;
+  ok(h3 !== base && h3 !== h2, 'edited GARAGE level -> different hash');
+  G.applyLevels(b.yard, b.garage);
+}
+// 6) BYTE only in yard/garage area: stand on the west street for 30s
+G.replay(123, [], 1); for (let i = 0; i < 1800; i++) G.tick(1);
+ok(L().stash === 0 && !G.byte.carrying, 'BYTE gives nothing while player is on the street');
+// 7) Doors open from the back (north) side
+G.replay(5, [], 1); { const g = G.garages[150]; S.inTruck = false; S.gear = 2; P.x = g.x + g.w / 2; P.y = g.y - 20; step(1); G.queueAct('act'); step(1); ok(g.doorOpen, 'bay #' + g.id + ' opened from the north side'); }
+// 8) A newly placed ramp launches the SUV
+{
+  const b = G.builtinLevels(); const g2 = JSON.parse(JSON.stringify(b.garage));
+  g2.ramps.push({ x: 1500, y: G.garages[300].y + 64 + 36, rot: 0, d: 200 });
+  G.replay(9, [], 1, '9', { yard: b.yard, garage: g2 });
+  S.inTruck = true; P.x = 1400; P.y = g2.ramps.at(-1).y; S.keys.right = true; let jumped = false;
+  for (let i = 0; i < 60; i++) { step(1); if (P.jump) jumped = true; } S.keys.right = false;
+  ok(jumped && P.x > 1650, 'placed ramp launched the SUV (x=' + Math.round(P.x) + ')');
+}
 process.exit(fail ? 1 : 0);
