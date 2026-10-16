@@ -82,7 +82,8 @@
     // => same hash. Nothing here calls a contract — earnings are PENDING.
     // ===================================================================
     const TICK = 1 / 60;
-    const DET_VERSION = 'caps-garage-det-2';
+    const DET_VERSION = 'caps-garage-det-3';
+    const LIFT = 14; // px of screen lift per stack level (render only)
     const STASH_CAP = 3;
     function fnv1a(str, h) {
       h = (h == null ? 0x811c9dc5 : h) >>> 0;
@@ -360,6 +361,10 @@
       });
     })();
 
+    // Teal broke-down SUVs are now ordinary level props ('cars') — editable/deletable in dev mode.
+    const DEFAULT_GREEN_CARS = greenSUVs.map(g => ({ x: g.x - g.length / 2, y: g.y - g.w / 2, w: g.length, h: g.w, z: 0 }));
+    greenSUVs.length = 0; // rebuilt from layout cars (prompt/radar/render helpers only)
+
     // --- LIGHT POLES: one every 10 bays (after #10, #20 … #500) = 50 poles ---
     const poles = []; // filled from the level layout (applyLayout)
     function defaultPolePositions() {
@@ -406,6 +411,7 @@
     // Verified solvable by routeCheck() (grid BFS on the real collision fn).
     const wrecks = [];  // filled from the level layout
     const crates = [];
+    const cars = [];
     const gearPicks = [];
     const WRECK_COLS = ['#7c2d12', '#57534e', '#9a3412', '#3f6212', '#713f12', '#475569'];
     function defaultWrecks() {
@@ -526,7 +532,8 @@
       const RX = rightSealX;
       return {
         v: 1, id: 'yard-1', name: 'The Yard (default)',
-        wrecks: defaultWrecks(),
+        lcrates: defaultWrecks(),
+        cars: DEFAULT_GREEN_CARS,
         crates: [
           { x: RX + 16, y: yardStartY + 140, z: 0 }, { x: RX + 16, y: yardStartY + 140, z: 1 }, { x: RX + 46, y: yardStartY + 140, z: 0 },
           { x: RX + 16, y: 840, z: 0 }, { x: RX + 16, y: 840, z: 1 }, { x: RX + 16, y: 840, z: 2 }
@@ -540,7 +547,8 @@
       const n = (v) => Math.round(Number(v) || 0);
       const out = {
         v: 1, area: L.area === 'yard' ? 'yard' : 'garage', id: String(L.id || 'custom').slice(0, 40), name: String(L.name || 'Custom level').slice(0, 60),
-        wrecks: (L.wrecks || []).map(w => ({ x: n(w.x), y: n(w.y), w: Math.max(16, n(w.w) || 60), h: Math.max(16, n(w.h) || 40), z: Math.max(0, n(w.z)), c: n(w.c) % 6 })),
+        cars: (L.cars || []).map(c => ({ x: n(c.x), y: n(c.y), w: Math.max(16, n(c.w) || 60), h: Math.max(16, n(c.h) || 36), z: Math.max(0, n(c.z)) })),
+        lcrates: (L.lcrates || L.wrecks || []).map(w => ({ x: n(w.x), y: n(w.y), w: Math.max(16, n(w.w) || 60), h: Math.max(16, n(w.h) || 40), z: Math.max(0, n(w.z)), c: n(w.c) % 6 })),
         crates: (L.crates || []).map(c => ({ x: n(c.x), y: n(c.y), z: Math.max(0, n(c.z)) })),
         ramps: (L.ramps || []).map(r => ({ x: n(r.x), y: n(r.y), rot: (((Math.round(n(r.rot) / 90) * 90) % 360) + 360) % 360, d: Math.max(60, Math.min(600, n(r.d) || 200)), label: r.label ? String(r.label).slice(0, 30) : '' })),
         gears: (L.gears || []).map(g => ({ x: n(g.x), y: n(g.y) })),
@@ -559,17 +567,25 @@
     }
     // ---- Two level AREAS: 'yard' (restricted/oil-tank yard, x >= rightSealX) and 'garage' (rows + lot + streets)
     function areaOf(x) { return x >= rightSealX - 10 ? 'yard' : 'garage'; }
+    const LAYOUT_KEYS = ['lcrates', 'crates', 'cars', 'ramps', 'gears', 'poles'];
     function builtinLevels() {
       const B = normLayout(builtinLayout());
-      const mk = (area, id, name) => ({
-        v: 1, area, id, name,
-        wrecks: B.wrecks.filter(w => areaOf(w.x + w.w / 2) === area),
-        crates: B.crates.filter(c => areaOf(c.x + 14) === area),
-        ramps: B.ramps.filter(r => areaOf(r.x) === area),
-        gears: B.gears.filter(g => areaOf(g.x) === area),
-        poles: B.poles.filter(p => areaOf(p.x) === area)
-      });
-      return { yard: mk('yard', 'yard-1', 'The Yard (default)'), garage: mk('garage', 'garage-1', 'Garage Rows (default)') };
+      const ctr = { lcrates: o => o.x + o.w / 2, crates: o => o.x + 14, cars: o => o.x + o.w / 2, ramps: o => o.x, gears: o => o.x, poles: o => o.x };
+      const mk = (area, id, name) => {
+        const o = { v: 1, area, id, name };
+        LAYOUT_KEYS.forEach(k => { o[k] = B[k].filter(it => areaOf(ctr[k](it)) === area); });
+        return o;
+      };
+      const maze = mk('yard', 'yard-maze', 'Wreck Maze');
+      const bare = { v: 1, area: 'yard', id: 'yard-bare', name: 'Bare Yard', lcrates: [], crates: [], cars: [], gears: [], poles: [], ramps: maze.ramps.slice() };
+      // Crate-bridge demo: two pillars + a 2-row deck at level 1; drive UNDER the gap or ramp ON TOP.
+      const br = { v: 1, area: 'yard', id: 'yard-bridges', name: 'Crate Bridges', lcrates: [], crates: [], cars: [], gears: [{ x: 6520, y: 540 }], poles: [], ramps: maze.ramps.slice() };
+      for (const y of [520, 560]) {
+        br.lcrates.push({ x: 6400, y, w: 60, h: 40, z: 0, c: 1 }, { x: 6580, y, w: 60, h: 40, z: 0, c: 1 });
+        for (const x of [6400, 6460, 6520, 6580]) br.lcrates.push({ x, y, w: 60, h: 40, z: 1, c: 4 });
+      }
+      br.ramps.push({ x: 6345, y: 560, rot: 0, d: 160, label: 'RAMP → DECK' });
+      return { yard: bare, garage: mk('garage', 'garage-1', 'Garage Rows (default)'), yardMaze: maze, yardBridges: br };
     }
     // Combine one yard level + one garage level into the live world. Both hashes enter the replay hash.
     function applyLevels(Y, G) {
@@ -578,7 +594,7 @@
       const g = normLayout(Object.assign({}, G || b.garage, { area: 'garage' }));
       det.levels = { yard: y, garage: g };
       const comb = { id: y.id + '+' + g.id, name: y.name + ' + ' + g.name };
-      ['wrecks', 'crates', 'ramps', 'gears', 'poles'].forEach(k => { comb[k] = g[k].concat(y[k]); });
+      LAYOUT_KEYS.forEach(k => { comb[k] = g[k].concat(y[k]); });
       applyLayout(comb);
       det.levelHash = { yard: layoutHashOf(y), garage: layoutHashOf(g) };
       det.layoutHash = det.levelHash.yard + '.' + det.levelHash.garage;
@@ -587,7 +603,9 @@
     function applyLayout(L) {
       const N = normLayout(L);
       det.layout = N; det.layoutHash = layoutHashOf(N);
-      wrecks.length = 0; N.wrecks.forEach(w => wrecks.push({ x: w.x, y: w.y, w: w.w, h: w.h, z: w.z, col: WRECK_COLS[w.c] }));
+      cars.length = 0; N.cars.forEach(c => cars.push({ x: c.x, y: c.y, w: c.w, h: c.h, z: c.z }));
+      greenSUVs.length = 0; cars.forEach(c => greenSUVs.push({ x: c.x + c.w / 2, y: c.y + c.h / 2, length: Math.max(c.w, c.h), w: Math.min(c.w, c.h), vert: c.h > c.w, z: c.z }));
+      wrecks.length = 0; N.lcrates.forEach(w => wrecks.push({ x: w.x, y: w.y, w: w.w, h: w.h, z: w.z, col: WRECK_COLS[w.c] }));
       crates.length = 0; N.crates.forEach(c => crates.push({ x: c.x, y: c.y, w: 28, h: 28, z: c.z }));
       ramps.length = 0; N.ramps.forEach(r => ramps.push(rampGeom(r)));
       poles.length = 0; N.poles.forEach((p, i) => poles.push({ id: i + 1, x: p.x, y: p.y, on: true }));
@@ -875,29 +893,34 @@
       return nx + hw > r.x && nx - hw < r.x + r.w && ny + hh > r.y && ny - hh < r.y + r.h;
     }
     // Single collision function — used by play AND by routeCheck() BFS.
-    function collidesAt(nx, ny, halfW, halfH, inTruck, cx, cy) {
+    // Layered collision: static world (bays, fences, walls) blocks at every height;
+    // stackable props (large/small crates, cars) only block on THEIR level (z === pz).
+    // pz = player's level: 0 ground, n = standing on top of a level n-1 block.
+    const STACK_ARRS = [wrecks, crates, cars];
+    function collidesAt(nx, ny, halfW, halfH, inTruck, cx, cy, pz) {
+      pz = pz | 0;
       if (garageBlocksAt(nx, ny, halfW, halfH)) return true;
-      // Green road blockers: HARD-block truck; walk may squeeze south-edge lane
-      for (let gi = 0; gi < greenSUVs.length; gi++) {
-        const s = greenSUVs[gi];
-        if (inTruck && !s.blockVehicle) continue;
-        const left = s.x - s.length / 2, right = s.x + s.length / 2;
-        const top = s.y - s.w / 2, bottom = s.y + s.w / 2;
-        if (nx + halfW > left && nx - halfW < right && ny + halfH > top && ny - halfH < bottom) return true;
-      }
       for (let fi = 0; fi < oilFenceSegs.length; fi++) if (rectHit(nx, ny, halfW, halfH, oilFenceSegs[fi])) return true;
       for (let bi = 0; bi < solidBarriers.length; bi++) if (rectHit(nx, ny, halfW, halfH, solidBarriers[bi])) return true;
-      // Broken-down vehicle maze: blocks SUV and walker
-      for (let wi = 0; wi < wrecks.length; wi++) if (rectHit(nx, ny, halfW, halfH, wrecks[wi])) return true;
-      for (let ci = 0; ci < crates.length; ci++) if (rectHit(nx, ny, halfW, halfH, crates[ci])) return true;
-      // Broken-gear trap piles: SUV only; never trap a truck already inside one
-      if (inTruck) {
+      for (let a = 0; a < STACK_ARRS.length; a++) {
+        const arr = STACK_ARRS[a];
+        for (let i = 0; i < arr.length; i++) if (arr[i].z === pz && rectHit(nx, ny, halfW, halfH, arr[i])) return true;
+      }
+      // Broken-gear trap piles: ground SUV only; never trap a truck already inside one
+      if (inTruck && pz === 0) {
         for (let di = 0; di < debris.length; di++) {
           const d = debris[di];
           if (rectHit(nx, ny, halfW, halfH, d) && !(cx != null && rectHit(cx, cy, halfW, halfH, d))) return true;
         }
       }
       return false;
+    }
+    const ptIn = (x, y, o) => x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h;
+    // Highest deck surface under (x,y) strictly below level `below` (Infinity = any)
+    function deckBelow(x, y, below) {
+      let lv = 0;
+      for (let a = 0; a < STACK_ARRS.length; a++) for (const o of STACK_ARRS[a]) if (o.z + 1 < below + 1 && o.z < below && ptIn(x, y, o) && o.z + 1 > lv) lv = o.z + 1;
+      return lv;
     }
 
     // Oil path check — runs ONLY when oil is deposited. Each can must exist in the
@@ -952,20 +975,22 @@
     }
 
     function startRampJump(ramp) {
-      if (!state.inTruck || player.jump || state.rampCooldown > 0) return;
+      if (player.jump || state.rampCooldown > 0 || player.pz) return;
       const face = ramp.face || 'north';
       // Never land inside a wall/wreck: walk the landing point back toward the ramp
       let lx = ramp.landX, ly = ramp.landY;
-      const hw = player.w * 0.48, hh = player.h * 0.48;
-      for (let k = 0; k < 80 && collidesAt(lx, ly, hw, hh, true); k++) {
+      const hw = state.inTruck ? player.w * 0.48 : 5, hh = state.inTruck ? player.h * 0.48 : 5;
+      let lz = deckBelow(lx, ly, Infinity); // ramps can launch onto crate decks
+      for (let k = 0; k < 80 && collidesAt(lx, ly, hw, hh, state.inTruck, null, null, lz); k++) {
         const ddx = (ramp.cx != null ? ramp.cx : player.x) - lx, ddy = (ramp.cy != null ? ramp.cy : player.y) - ly;
         const dd = Math.hypot(ddx, ddy); if (dd < 8) break;
         lx += ddx / dd * 8; ly += ddy / dd * 8;
+        lz = deckBelow(lx, ly, Infinity);
       }
       player.jump = {
         t: 0, dur: 0.55,
         x0: player.x, y0: player.y,
-        x1: lx, y1: ly,
+        x1: lx, y1: ly, z1: lz,
         face
       };
       state.rampCooldown = 1.2;
@@ -1073,6 +1098,7 @@
         if (u >= 1) {
           player.x = j.x1;
           player.y = j.y1;
+          player.pz = j.z1 | 0;
           player.jump = null;
         }
       } else {
@@ -1122,11 +1148,23 @@
           const nextY = player.y + dy;
           const halfW = state.inTruck ? player.w * 0.48 : 5;
           const halfH = state.inTruck ? player.h * 0.48 : 5;
-          const blocked = collidesAt(nextX, nextY, halfW, halfH, state.inTruck, player.x, player.y);
+          const blocked = collidesAt(nextX, nextY, halfW, halfH, state.inTruck, player.x, player.y, player.pz);
 
           if (!blocked) {
             player.x = Math.max(40, Math.min(world.width - 40, nextX));
             player.y = Math.max(30, Math.min(world.height - 40, nextY));
+            // Drive off a deck edge → drop to whatever is below (lower deck or ground)
+            if (player.pz > 0) {
+              const below = deckBelow(player.x, player.y, player.pz);
+              if (below < player.pz) {
+                player.pz = below;
+                // roll clear of anything at the new level (deterministic nudge along travel dir)
+                const ml = Math.hypot(dx, dy) || 1;
+                for (let k = 0; k < 20 && collidesAt(player.x, player.y, halfW, halfH, state.inTruck, null, null, player.pz); k++) {
+                  player.x += dx / ml * 4; player.y += dy / ml * 4;
+                }
+              }
+            }
           }
 
           if (state.inTruck && Math.random() < 0.3) {
@@ -1140,8 +1178,8 @@
           }
         }
 
-        // Ramp triggers — truck only; walk can stand without launch
-        if (state.inTruck && state.rampCooldown <= 0) {
+        // Ramp triggers — SUV and walker (ground level only)
+        if (!player.pz && state.rampCooldown <= 0) {
           for (let ri = 0; ri < ramps.length; ri++) {
             const ramp = ramps[ri];
             if (player.x > ramp.x && player.x < ramp.x + ramp.w &&
@@ -1183,7 +1221,7 @@
       }
 
       // TRUCK DEPOSIT PAD AUTOMATIC DEPOSIT
-      const onPad = (player.x >= depositPad.x && player.x <= depositPad.x + depositPad.w &&
+      const onPad = !player.pz && (player.x >= depositPad.x && player.x <= depositPad.x + depositPad.w &&
                      player.y >= depositPad.y && player.y <= depositPad.y + depositPad.h);
 
       if (onPad && state.inTruck) {
@@ -1249,7 +1287,7 @@
       const promptEl = det.replaying ? { style: {} } : document.getElementById('action-prompt');
       const actionTextEl = det.replaying ? {} : document.getElementById('action-text');
 
-      const nearDoor = findNearestDoor(42);
+      const nearDoor = player.pz ? null : findNearestDoor(42);
       state.currentDoor = nearDoor;
 
       if (distToBlue < 65) {
@@ -1493,18 +1531,23 @@
       });
       // Broken-down vehicle maze
       // stacked: draw lower z first
-      const stackables = wrecks.map(w => ['w', w]).concat(crates.map(c => ['c', c])).sort((a, b) => (a[1].z - b[1].z) || (a[1].y - b[1].y));
-      stackables.forEach(([k, o]) => { if (o.x + o.w > viewLeft && o.x < viewRight) (k === 'w' ? renderWreck : renderCrate)(o); });
+      const pzNow = player.jump ? Math.max(player.jump.z1 | 0, 1) : (player.pz | 0);
+      const stackables = wrecks.map(w => ['w', w]).concat(crates.map(c => ['c', c]), cars.map(c => ['v', c]))
+        .filter(([k, o]) => o.x + o.w > viewLeft && o.x < viewRight)
+        .sort((a, b) => (a[1].z - b[1].z) || (a[1].y - b[1].y));
+      const drawStack = ([k, o]) => {
+        // a deck over the player's head is drawn see-through so the bridge reads clearly
+        const over = o.z >= pzNow && o.z > 0 && rectHit(player.x, player.y, 30, 20, o);
+        if (over) ctx.globalAlpha = 0.55;
+        (k === 'w' ? renderWreck : k === 'c' ? renderCrate : renderCar)(o);
+        ctx.globalAlpha = 1;
+      };
+      stackables.forEach(it => { if (it[1].z < pzNow) drawStack(it); });
       gearPicks.forEach(g => { if (!g.taken) renderGearPick(g); });
 
       // Blue SUV inside Bay #42
       renderBlueSUV(blueSUV.x, blueSUV.y);
 
-      // Green / teal road blockers
-      greenSUVs.forEach(s => {
-        if (s.x + s.length < viewLeft || s.x - s.length > viewRight) return;
-        renderGreenSUV(s);
-      });
 
       // Oil tank yard fence (behind pad/tank sprites)
       renderOilYardFence();
@@ -1535,12 +1578,18 @@
       renderByte();
       if (dev.on) renderDevOverlay();
 
-      // Player
-      if (state.inTruck) {
-        renderRedTruck(player.x, player.y, player.heading);
-      } else {
-        renderDriver(player.x, player.y, player.heading);
+      // Player (lifted by its deck level; ground shadow shows height)
+      const plift = player.jump ? 0 : (player.pz | 0) * LIFT;
+      if (plift) {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath(); ctx.ellipse(player.x + 6, player.y + 10, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
       }
+      if (state.inTruck) {
+        renderRedTruck(player.x, player.y - plift, player.heading);
+      } else {
+        renderDriver(player.x, player.y - plift, player.heading);
+      }
+      stackables.forEach(it => { if (it[1].z >= pzNow) drawStack(it); });
 
       ctx.restore();
       renderRadar();
@@ -1725,8 +1774,20 @@
       ctx.fillStyle = '#fca5a5'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
       ctx.fillText('BROKEN GEARS', d.x + d.w / 2, d.y + d.h / 2);
     }
+    function renderCar(c) {
+      const lift = c.z * LIFT;
+      if (lift) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(c.x + 4, c.y + 4, c.w, c.h); }
+      const vert = c.h > c.w;
+      ctx.save();
+      ctx.translate(c.x + c.w / 2, c.y + c.h / 2 - lift);
+      if (vert) ctx.rotate(Math.PI / 2);
+      ctx.translate(-(c.x + c.w / 2), -(c.y + c.h / 2));
+      renderGreenSUV({ x: c.x + c.w / 2, y: c.y + c.h / 2, length: Math.max(c.w, c.h), w: Math.min(c.w, c.h) });
+      ctx.restore();
+      if (c.z) { ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillText('L' + (c.z + 1), c.x + c.w - 6, c.y - lift + 9); }
+    }
     function renderCrate(c) {
-      const lift = c.z * 9, x = c.x, y = c.y - lift;
+      const lift = c.z * LIFT, x = c.x, y = c.y - lift;
       ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(c.x + 3, c.y + 4, c.w, c.h);
       ctx.fillStyle = '#92400e'; ctx.fillRect(x, y, c.w, c.h);
       ctx.fillStyle = '#b45309'; ctx.fillRect(x + 2, y + 2, c.w - 4, c.h - 4);
@@ -1744,7 +1805,8 @@
       ctx.restore();
     }
     function renderWreck(w0) {
-      const w = w0.z ? { x: w0.x, y: w0.y - w0.z * 12, w: w0.w, h: w0.h, col: w0.col } : w0;
+      if (w0.z) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(w0.x + 5, w0.y + 6, w0.w, w0.h); }
+      const w = w0.z ? { x: w0.x, y: w0.y - w0.z * LIFT, w: w0.w, h: w0.h, col: w0.col } : w0;
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fillRect(w.x + 3, w.y + 4, w.w, w.h);
       ctx.fillStyle = w.col;
@@ -2374,7 +2436,7 @@
       Object.assign(state, { cans: 0, drb: 0, gear: 5, inTruck: true, gearVaultCooldown: 0, oilTankCooldown: 0,
         vaultPool: 450000, currentAction: null, currentDoor: null, currentPole: null, rampCooldown: 0 });
       player.x = yardStartX - 100; player.y = rows[4].roadY + dirtRoadH / 2;
-      player.heading = 0; player.jump = null; player.trail = [];
+      player.heading = 0; player.jump = null; player.trail = []; player.pz = 0;
       garages.forEach(g => { g.doorOpen = false; });
       if (!det.levels) applyLevels(null, null);
       gearPicks.forEach(g => { g.taken = false; });
@@ -2390,7 +2452,7 @@
       const o = {
         v: DET_VERSION, s: det.seed, t: det.tick, lh: det.layoutHash,
         gp: gearPicks.map(g => g.taken ? 1 : 0).join(''),
-        p: [player.x, player.y, player.heading, state.inTruck ? 1 : 0, player.jump ? 1 : 0],
+        p: [player.x, player.y, player.heading, state.inTruck ? 1 : 0, player.jump ? 1 : 0, player.pz | 0],
         g: state.gear, drb: state.drb, c: L.carried.map(c => c.id),
         L: [L.pendingGear, L.pendingByte, L.stash, L.bankedGear, L.bankedDrb, L.lostGear, L.lostCans, L.rig],
         d: garages.filter(g => g.doorOpen).map(g => g.id),
@@ -2510,7 +2572,7 @@
       }).catch(() => start(b.yard, b.garage));
     })();
     window.__garage = {
-      applyLevels, builtinLevels, areaOf, applyLayout, builtinLayout, normLayout, layoutHashOf, crates, gearPicks,
+      cars, deckBelow, LIFT, applyLevels, builtinLevels, areaOf, applyLayout, builtinLayout, normLayout, layoutHashOf, crates, gearPicks,
       det, replay, stateHash, sessionExport, resetSim, routeCheck, mazeStart, mazeGoal,
       poles, garages, wrecks, debris, byte, player, state, ramps, depositPad,
       tick: (n) => { for (let i = 0; i < (n || 1); i++) detTick(); render(); },

@@ -336,13 +336,23 @@
       #test-bench { top: auto; bottom: 180px; right: 10px; }
     }
 
-    #dev-bar { position: absolute; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; gap: 4px; padding: 6px; background: rgba(8,12,18,0.94); border-top: 2px solid #22d3ee; z-index: 55; }
+    #dev-bar { position: absolute; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; gap: 6px;
+      padding: 8px max(10px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+      max-height: 62%; overflow-y: auto; background: rgba(8,12,18,0.97); border-top: 2px solid #22d3ee; z-index: 70; }
     #dev-bar.show { display: flex; }
-    #dev-info { font: 11px var(--font-mono); color: #67e8f9; }
-    .dev-row { display: flex; gap: 4px; overflow-x: auto; }
-    .dev-row button { flex: 0 0 auto; background: var(--bg-elevated); color: #fff; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 7px 9px; font-size: 12px; touch-action: manipulation; }
-    .dev-row button.on { border-color: #22d3ee; background: #164e63; }
+    .dev-top { display: flex; align-items: flex-start; gap: 8px; }
+    #dev-info { flex: 1; font: 13px/1.35 var(--font-sans); color: #a5f3fc; word-break: break-word; }
+    .dev-col { flex: 0 0 auto; background: #164e63; color: #fff; border: 1px solid #22d3ee; border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 700; }
+    #dev-bar.collapsed .dev-body { display: none; }
+    #dev-bar.collapsed .dev-col { transform: none; }
+    .dev-play { background: #166534; border-color: #4ade80; }
+    .dev-lbl { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+    .dev-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .dev-row button { flex: 1 1 auto; min-height: 36px; background: var(--bg-elevated); color: #fff; border: 1px solid #334155; border-radius: 8px; padding: 6px 8px; font-size: 13px; font-weight: 600; touch-action: manipulation; }
+    .dev-row button.on { border-color: #22d3ee; background: #155e75; }
     .dev-row .dev-exit { background: #166534; border-color: #4ade80; }
+    .dev-row .dev-del { border-color: #f87171; color: #fecaca; }
+    body.dev #test-bench, body.dev #radar-panel, body.dev #touch-action, body.dev #action-prompt { display: none !important; }
     .sx-group { margin-top: 10px; font-weight: 800; color: #fbbf24; }
     .sx-lvl { display: block; padding: 8px; margin-top: 4px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 6px; color: #fff; text-decoration: none; }
     .stat-pill.pending { border-color: #fbbf24; color: #fde68a; cursor: pointer; }
@@ -449,10 +459,10 @@
     </div>
 
     <!-- Test Rig -->
-    <div id="test-bench">
+    <div id="test-bench" class="collapsed">
       <div class="bench-header" onclick="toggleBench()">
         <span>🛠️ Yard Rig & Cheats</span>
-        <span id="bench-toggle-icon">▼</span>
+        <span id="bench-toggle-icon">▲</span>
       </div>
       <div class="bench-body">
         <button class="bench-btn" onclick="testGiveCans(10)">
@@ -497,27 +507,35 @@
 
     <!-- DEV / level editor (?dev=1, 5 taps on title, or ` key) -->
     <div id="dev-bar">
-      <div id="dev-info">dev</div>
+      <div class="dev-top"><div id="dev-info">dev</div><button class="dev-col" onclick="devCmd('collapse')">▾ Tools</button><button class="dev-col dev-play" onclick="devCmd('exit')">▶ Play</button></div>
+      <div class="dev-body">
+      <div class="dev-lbl">Place (tap tool, then tap the ground)</div>
       <div class="dev-row">
-        <button data-tool="select" onclick="devCmd('tool','select')">👆 Move</button>
-        <button data-tool="car" onclick="devCmd('tool','car')">+🚗 Car</button>
-        <button data-tool="crate" onclick="devCmd('tool','crate')">+📦 Crate</button>
+        <button data-tool="select" onclick="devCmd('tool','select')">👆 Select / Move</button>
+        <button data-tool="crate" onclick="devCmd('tool','crate')">+📦 Small Crate</button>
+        <button data-tool="lcrate" onclick="devCmd('tool','lcrate')">+🟫 Large Crate</button>
+        <button data-tool="car" onclick="devCmd('tool','car')">+🚙 Car</button>
         <button data-tool="ramp" onclick="devCmd('tool','ramp')">+⛰ Ramp</button>
         <button data-tool="gear" onclick="devCmd('tool','gear')">+⚙ Gear</button>
         <button data-tool="lamp" onclick="devCmd('tool','lamp')">+💡 Lamp</button>
       </div>
+      <div class="dev-lbl">Edit selected</div>
       <div class="dev-row">
         <button onclick="devCmd('rotate')">⟳ Rotate</button>
-        <button onclick="devCmd('stack')">⬆ Stack</button>
+        <button onclick="devCmd('stack')">⬆ Stack copy</button>
+        <button onclick="devCmd('level',1)">⤒ Raise</button>
+        <button onclick="devCmd('level',-1)">⤓ Lower</button>
         <button onclick="devCmd('jump',-20)">Jump −</button>
         <button onclick="devCmd('jump',20)">Jump +</button>
-        <button onclick="devCmd('delete')">🗑 Delete</button>
+        <button class="dev-del" onclick="devCmd('delete')">🗑 Delete</button>
         <button onclick="devCmd('undo')">↶ Undo</button>
         <button onclick="devCmd('zoom',0.8)">🔍−</button>
         <button onclick="devCmd('zoom',1.25)">🔍+</button>
       </div>
+      <div class="dev-lbl">Level</div>
       <div class="dev-row">
-        <button onclick="devCmd('area')">⇄ Yard/Garage</button>
+        <button onclick="devCmd('area')">⇄ Yard / Garage</button>
+        <button class="dev-del" onclick="devCmd('clear')">🧹 Clear area</button>
         <button onclick="devCmd('name')">✏ Name</button>
         <button onclick="devCmd('save')">💾 Save</button>
         <button onclick="devCmd('export')">📤 Export</button>
@@ -525,7 +543,7 @@
         <button onclick="devCmd('copy')">📋 Copy</button>
         <button onclick="devCmd('check')">✅ Route</button>
         <button onclick="devCmd('default')">♻ Built-in</button>
-        <button class="dev-exit" onclick="devCmd('exit')">▶ Play</button>
+      </div>
       </div>
       <input type="file" id="dev-file" accept=".json,application/json" style="display:none" />
     </div>
@@ -535,7 +553,7 @@
     <div id="touch-action" onclick="triggerCurrentAction()">ACTION<br>(E)</div>
   </div>
 
-  <script src="./garage.js?v=lvl2"></script>
-  <script src="./dev.js?v=lvl2"></script>
+  <script src="./garage.js?v=deck3"></script>
+  <script src="./dev.js?v=deck3"></script>
 </body>
 </html>

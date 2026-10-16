@@ -2,6 +2,7 @@
 // Enter: ?dev=1, tap the "CAPs Garage" title 5 times, or press ` on a keyboard.
 (function () {
   const GRID = 4;
+  const STACKY = (k) => k === 'lcrates' || k === 'crates' || k === 'cars';
   const snap = (v) => Math.round(v / GRID) * GRID;
   dev.tool = 'select'; dev.sel = null; dev.undo = []; dev.layout = null;
   const ptrs = new Map(); let drag = null, pinch = null;
@@ -14,20 +15,21 @@
   function preview() { applyEdit(); describe(); }
   function describe() {
     const L = dev.layout;
-    const s = dev.sel ? `${dev.sel.kind} #${dev.sel.i + 1}` + (dev.sel.kind === 'wrecks' || dev.sel.kind === 'crates' ? ` · stack ${L[dev.sel.kind][dev.sel.i].z + 1}` : '') + (dev.sel.kind === 'ramps' ? ` · ${L.ramps[dev.sel.i].rot}° · jump ${L.ramps[dev.sel.i].d}` : '') : 'nothing selected';
-    info(`[${dev.area.toUpperCase()} level] ${L.name} · tool: ${dev.tool} · ${s} · cars ${L.wrecks.length} crates ${L.crates.length} ramps ${L.ramps.length} gears ${L.gears.length} lamps ${L.poles.length}`);
+    const NAMES = { lcrates: 'Large crate', crates: 'Small crate', cars: 'Car', ramps: 'Ramp', gears: 'Gear', poles: 'Lamp' };
+    const s = dev.sel ? `${NAMES[dev.sel.kind]} #${dev.sel.i + 1}` + (STACKY(dev.sel.kind) ? ` · level ${L[dev.sel.kind][dev.sel.i].z + 1}` : '') + (dev.sel.kind === 'ramps' ? ` · ${L.ramps[dev.sel.i].rot}° · jump ${L.ramps[dev.sel.i].d}` : '') : 'nothing selected';
+    info(`[${dev.area.toUpperCase()} level] ${L.name} · tool: ${dev.tool} · ${s} · big ${L.lcrates.length} small ${L.crates.length} cars ${L.cars.length} ramps ${L.ramps.length} gears ${L.gears.length} lamps ${L.poles.length}`);
     document.querySelectorAll('#dev-bar [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === dev.tool));
   }
   window.enterDev = function () {
     if (dev.on) return;
     dev.on = true; dev.area = areaOf(player.x); dev.layout = clone(det.levels[dev.area]); dev.undo = []; dev.sel = null; dev.tool = 'select';
     dev.cam.x = player.x; dev.cam.y = player.y; dev.cam.z = 0.6;
-    bar().classList.add('show'); describe();
+    bar().classList.add('show'); document.body.classList.add('dev'); describe();
     showToast('🛠 DEV MODE — game paused. Drag things, tap empty ground to pan.');
   };
   window.exitDev = function () {
     if (!dev.on) return;
-    dev.on = false; bar().classList.remove('show');
+    dev.on = false; bar().classList.remove('show'); document.body.classList.remove('dev');
     applyEdit(); resetSim(det.seed, det.seedLabel); updateHUD();
     showToast(`▶ Playing ${det.levels.yard.name} + ${det.levels.garage.name} (new session)`);
   };
@@ -46,14 +48,14 @@
       const ow = w || o.w, oh = h || o.h, oy = o.y - o.z * lift;
       if (p.x > o.x && p.x < o.x + ow && p.y > oy && p.y < oy + oh && (!best || o.z >= best.z)) best = { kind, i, z: o.z };
     });
-    test('crates', L.crates, 28, 28, 9); test('wrecks', L.wrecks, 0, 0, 12);
+    test('crates', L.crates, 28, 28, LIFT); test('cars', L.cars, 0, 0, LIFT); test('lcrates', L.lcrates, 0, 0, LIFT);
     return best ? { kind: best.kind, i: best.i } : null;
   }
   function selObj() { return dev.sel ? dev.layout[dev.sel.kind][dev.sel.i] : null; }
   function sizeOf(kind, o) { return kind === 'crates' ? [28, 28] : [o.w, o.h]; }
   // Height-stack snap: drop a car/crate onto another of the same kind → align + z = top + 1
   function stackSnap() {
-    if (!dev.sel || (dev.sel.kind !== 'wrecks' && dev.sel.kind !== 'crates')) return;
+    if (!dev.sel || !STACKY(dev.sel.kind)) return;
     const arr = dev.layout[dev.sel.kind], me = arr[dev.sel.i];
     const [mw, mh] = sizeOf(dev.sel.kind, me);
     const cx = me.x + mw / 2, cy = me.y + mh / 2;
@@ -71,7 +73,8 @@
   function addAt(p) {
     const L = dev.layout; pushUndo();
     const x = snap(p.x), y = snap(p.y);
-    if (dev.tool === 'car') { L.wrecks.push({ x: x - 30, y: y - 20, w: 60, h: 40, z: 0, c: L.wrecks.length % 6 }); dev.sel = { kind: 'wrecks', i: L.wrecks.length - 1 }; stackSnap(); }
+    if (dev.tool === 'lcrate') { L.lcrates.push({ x: x - 30, y: y - 20, w: 60, h: 40, z: 0, c: L.lcrates.length % 6 }); dev.sel = { kind: 'lcrates', i: L.lcrates.length - 1 }; stackSnap(); }
+    else if (dev.tool === 'car') { L.cars.push({ x: x - 30, y: y - 18, w: 60, h: 36, z: 0 }); dev.sel = { kind: 'cars', i: L.cars.length - 1 }; stackSnap(); }
     else if (dev.tool === 'crate') { L.crates.push({ x: x - 14, y: y - 14, z: 0 }); dev.sel = { kind: 'crates', i: L.crates.length - 1 }; stackSnap(); }
     else if (dev.tool === 'ramp') { L.ramps.push({ x, y, rot: 0, d: 200, label: 'RAMP' }); dev.sel = { kind: 'ramps', i: L.ramps.length - 1 }; }
     else if (dev.tool === 'gear') { L.gears.push({ x, y }); dev.sel = { kind: 'gears', i: L.gears.length - 1 }; }
@@ -134,12 +137,19 @@
       case 'rotate':
         if (!o) break; pushUndo();
         if (dev.sel.kind === 'ramps') o.rot = (o.rot + 90) % 360;
-        else if (dev.sel.kind === 'wrecks') { const cx = o.x + o.w / 2, cy = o.y + o.h / 2; [o.w, o.h] = [o.h, o.w]; o.x = snap(cx - o.w / 2); o.y = snap(cy - o.h / 2); }
+        else if (dev.sel.kind === 'lcrates' || dev.sel.kind === 'cars') { const cx = o.x + o.w / 2, cy = o.y + o.h / 2; [o.w, o.h] = [o.h, o.w]; o.x = snap(cx - o.w / 2); o.y = snap(cy - o.h / 2); }
         break;
       case 'stack': // put a copy on top of the selected car/crate
-        if (!o || (dev.sel.kind !== 'wrecks' && dev.sel.kind !== 'crates')) break; pushUndo();
+        if (!o || !STACKY(dev.sel.kind)) break; pushUndo();
         { const c = clone(o); const arr = L[dev.sel.kind]; c.z = Math.max(...arr.filter(q => q.x === o.x && q.y === o.y).map(q => q.z)) + 1; if (c.c != null) c.c = (c.c + 1) % 6; arr.push(c); dev.sel = { kind: dev.sel.kind, i: arr.length - 1 }; }
         break;
+      case 'level': if (o && STACKY(dev.sel.kind)) { pushUndo(); o.z = Math.max(0, Math.min(6, o.z + arg)); } break; // floating levels = bridges
+      case 'clear':
+        if (confirm(`Clear ALL props in the ${dev.area.toUpperCase()} area (cars, crates, ramps, gears, lamps)? Undo can bring them back.`)) {
+          pushUndo(); ['lcrates', 'crates', 'cars', 'ramps', 'gears', 'poles'].forEach(k => { L[k] = []; }); dev.sel = null;
+        }
+        break;
+      case 'collapse': bar().classList.toggle('collapsed'); return;
       case 'jump': if (o && dev.sel.kind === 'ramps') { pushUndo(); o.d = Math.max(60, Math.min(600, o.d + arg)); } break;
       case 'zoom': dev.cam.z = Math.max(0.15, Math.min(2.5, dev.cam.z * arg)); break;
       case 'name': { const n = prompt('Level name', L.name); if (n) { pushUndo(); L.name = n; L.id = n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'custom'; } } break;
@@ -171,8 +181,8 @@
     const o = selObj(); if (!o) return;
     ctx.strokeStyle = '#22d3ee';
     if (dev.sel.kind === 'ramps') { const g = rampGeom(o); ctx.strokeRect(g.x - 3, g.y - 3, g.w + 6, g.h + 6); }
-    else if (dev.sel.kind === 'wrecks') ctx.strokeRect(o.x - 3, o.y - o.z * 12 - 3, o.w + 6, o.h + 6);
-    else if (dev.sel.kind === 'crates') ctx.strokeRect(o.x - 3, o.y - o.z * 9 - 3, 34, 34);
+    else if (dev.sel.kind === 'lcrates' || dev.sel.kind === 'cars') ctx.strokeRect(o.x - 3, o.y - o.z * LIFT - 3, o.w + 6, o.h + 6);
+    else if (dev.sel.kind === 'crates') ctx.strokeRect(o.x - 3, o.y - o.z * LIFT - 3, 34, 34);
     else { ctx.beginPath(); ctx.arc(o.x, o.y + (dev.sel.kind === 'poles' ? 0 : 0), 16, 0, Math.PI * 2); ctx.stroke(); }
   };
 })();

@@ -145,3 +145,9 @@ Same approach as Gear Mill DET: mulberry32 sub-streams from one session seed (`?
   - 💾 saves to this device. 📤 Export downloads `<area>-<id>.json`. 📥 Import loads a level file. ✅ Route checks that the SUV route from the ramp landing to the pad still works. ▶ Play exits dev mode and starts a new session.
   - To make a level the default for everyone, add the exported file to `game/levels/` and put it first for its area in `index.json`.
 - BYTE only brings gears while you're in the yard or garage area (not on the streets). Bay doors open from both sides.
+
+## Decks, bridges, full customization (DET v3)
+
+- **Every prop is a level object:** small crates, large crates (the old "wreck" blocks), cars (the teal broke-down SUVs, including the built-in road blockers and the #500 pile), ramps, gears and lamps. All of them can be selected, moved and deleted in dev mode. 🧹 Clear area (asks first; Undo restores) wipes everything in the area you're editing.
+- **Yard levels:** `yard-bare` (the default: empty yard plus the exit ramp), `yard-maze` (the old wreck maze) and `yard-bridges` (crate-bridge demo). Garage: `garage-1`.
+- **Layered collision:** props block only on their own level (`z`). The world (bays, fences, walls) blocks at every level. A ramp lands you on top of a stack (level = stack top). Drive across deck tops, and roll off an edge to drop to the level below. A prop raised (⤒) with nothing under it is a bridge: you can drive under it at ground level. Ramps now work for the walker too. Doors and the deposit pad work only at ground level.

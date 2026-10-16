@@ -9,6 +9,9 @@ G.garages.forEach(g => { const k = g.content.kind === 'prize' ? 'p' + g.content.
 ok(cnt.p2 === 100 && cnt.p5 === 50 && cnt.p10 === 25 && cnt.p25 === 5 && cnt.p100 === 1 && cnt.spill === 40 && cnt.drop === 40 && cnt.block === 20 && cnt.empty === 219, 'door table ' + JSON.stringify(cnt));
 ok(G.poles.length === 50, '50 poles; off at start = ' + G.poles.filter(p => !p.on).length);
 
+{ const b = G.builtinLevels(); G.applyLevels(b.yardMaze, b.garage);
+  ok(G.routeCheck(G.mazeStart, G.mazeGoal, true), 'WRECK MAZE level: SUV ramp landing -> oil pad solvable');
+  G.applyLevels(b.yard, b.garage); G.resetSim(G.det.seed, G.det.seedLabel); }
 // 2) Maze solvable for SUV (ramp landing -> pad), also on several seeds (layout is fixed)
 ok(G.routeCheck(G.mazeStart, G.mazeGoal, true), 'SUV route ramp landing -> oil pad solvable');
 ok(G.routeCheck(G.mazeGoal, { x: G.ramps[1].x + 28, y: G.ramps[1].y + 30 }, true), 'SUV route pad -> north ramp (exit) solvable');
@@ -68,5 +71,19 @@ G.replay(5, [], 1); { const g = G.garages[150]; S.inTruck = false; S.gear = 2; P
   S.inTruck = true; P.x = 1400; P.y = g2.ramps.at(-1).y; S.keys.right = true; let jumped = false;
   for (let i = 0; i < 60; i++) { step(1); if (P.jump) jumped = true; } S.keys.right = false;
   ok(jumped && P.x > 1650, 'placed ramp launched the SUV (x=' + Math.round(P.x) + ')');
+}
+// 9) Crate bridge: drive UNDER at ground level, ramp ON TOP to the deck, drive across, drop off
+{
+  const b = G.builtinLevels();
+  G.replay(11, [], 1, '11', { yard: b.yardBridges, garage: b.garage });
+  S.inTruck = true; P.x = 6520; P.y = 440; P.pz = 0; S.keys.down = true; step(50); S.keys.down = false;
+  ok(P.y > 620 && P.pz === 0, 'drove UNDER the crate bridge at ground level (y=' + Math.round(P.y) + ')');
+  P.x = 6490; P.y = 560; S.keys.right = true; step(20); S.keys.right = false;
+  ok(P.x < 6560 && P.x > 6500, 'ground SUV blocked by the bridge pillar (x=' + Math.round(P.x) + ')');
+  P.x = 6320; P.y = 560; P.pz = 0; S.keys.right = true; let maxPz = 0, onTopX = 0;
+  for (let i = 0; i < 90; i++) { step(1); if (P.pz > maxPz) maxPz = P.pz; if (P.pz === 2) onTopX = P.x; }
+  S.keys.right = false;
+  ok(maxPz === 2 && onTopX > 6560, 'ramp launched SUV onto the deck (level ' + maxPz + ') and it drove across');
+  ok(P.pz === 0 && P.x > 6650, 'drove off the deck end and dropped to ground (x=' + Math.round(P.x) + ', pz=' + P.pz + ')');
 }
 process.exit(fail ? 1 : 0);

@@ -2,10 +2,22 @@
  "v": 1,
  "levels": [
   {
-   "id": "yard-1",
-   "name": "The Yard (default)",
+   "id": "yard-bare",
+   "name": "Bare Yard",
    "area": "yard",
-   "file": "yard-1.json"
+   "file": "yard-bare.json"
+  },
+  {
+   "id": "yard-maze",
+   "name": "Wreck Maze",
+   "area": "yard",
+   "file": "yard-maze.json"
+  },
+  {
+   "id": "yard-bridges",
+   "name": "Crate Bridges",
+   "area": "yard",
+   "file": "yard-bridges.json"
   },
   {
    "id": "garage-1",
